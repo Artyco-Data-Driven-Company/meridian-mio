@@ -147,6 +147,45 @@ channel with the highest spend will be displayed. The same chart can be viewed
 for all other channels as described in "Optimize frequency" in the User
 Guide."""
 
+#  Comparison metrics texts.
+COMPARISON_METRICS_CARD_ID = 'comparison-metrics'
+COMPARISON_METRICS_CARD_TITLE = 'Comparison Metrics'
+COMPARISON_METRICS_INSIGHTS_FORMAT = """The comparison metrics table shows the
+performance of your marketing channels across two different time periods.<br>
+In this case, we are comparing <b>Period 1</b> ({period_1}) and <b>Period 2</b>
+({period_2})."""
+
+KPI_COMPARISON_ID = 'kpi-comparison-table'
+KPI_COMPARISON_TITLE = 'KPI Comparison'
+KPI_COMPARISON_DESCRIPTION = 'KPI Comparison Description.'
+
+SPEND_COMPARISON_ID = 'spend-comparison-table'
+SPEND_COMPARISON_TITLE = 'Spend Comparison'
+SPEND_COMPARISON_DESCRIPTION = 'Spend Comparison Description.'
+
+CONTRIBUTION_COMPARISON_ID = 'contribution-comparison-table'
+CONTRIBUTION_COMPARISON_TITLE = 'Contribution Comparison'
+CONTRIBUTION_COMPARISON_DESCRIPTION = 'Contribution Comparison Description.'
+
+KPI_CONTRIBUTION_COMPARISON_ID = 'kpi-contribution-comparison-table'
+KPI_CONTRIBUTION_COMPARISON_TITLE = 'KPI Contribution Comparison'
+KPI_CONTRIBUTION_COMPARISON_DESCRIPTION = (
+    'KPI Contribution Comparison Description.'
+)
+
+ROI_COMPARISON_ID = 'roi-comparison-table'
+ROI_COMPARISON_TITLE = 'ROI Comparison'
+ROI_COMPARISON_DESCRIPTION = 'ROI Comparison Description.'
+
+SPEND_COMPARISON_CHART_ID = 'spend-comparison-pie-chart'
+SPEND_COMPARISON_CHART_TITLE = 'Spend Comparison Pie Chart'
+SPEND_COMPARISON_CHART_DESCRIPTION = 'Spend Comparison Pie Chart Description.'
+
+CONTRIBUTION_COMPARISON_CHART_ID = 'contribution-comparison-pie-chart'
+CONTRIBUTION_COMPARISON_CHART_TITLE = 'Contribution Comparison Pie Chart'
+CONTRIBUTION_COMPARISON_CHART_DESCRIPTION = (
+    'Contribution Comparison Pie Chart Description.'
+)
 
 # Budget optimization texts.
 OPTIMIZATION_TITLE = 'MMM Optimization Report'

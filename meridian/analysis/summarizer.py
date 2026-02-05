@@ -15,6 +15,8 @@
 """Summarization module that creates a 2-page HTML report."""
 
 from collections.abc import Sequence
+from functools import partial
+from typing import Any
 import functools
 import os
 
@@ -36,6 +38,7 @@ __all__ = [
     'CHANNEL_CONTRIB_CARD_SPEC',
     'PERFORMANCE_BREAKDOWN_CARD_SPEC',
     'RESPONSE_CURVES_CARD_SPEC',
+    'COMPARISON_METRICS_CARD_SPEC',
 ]
 
 
@@ -54,6 +57,11 @@ PERFORMANCE_BREAKDOWN_CARD_SPEC = formatter.CardSpec(
 RESPONSE_CURVES_CARD_SPEC = formatter.CardSpec(
     id=summary_text.RESPONSE_CURVES_CARD_ID,
     title=summary_text.RESPONSE_CURVES_CARD_TITLE,
+)
+
+COMPARISON_METRICS_CARD_SPEC = formatter.CardSpec(
+    id=summary_text.COMPARISON_METRICS_CARD_ID,
+    title=summary_text.COMPARISON_METRICS_CARD_TITLE,
 )
 
 
@@ -79,6 +87,7 @@ class Summarizer:
       filepath: str,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
+      comparison_metrics: dict[str, Any] | None = None,
   ):
     """Generates and saves the HTML results summary output.
 
@@ -88,15 +97,34 @@ class Summarizer:
       start_date: Optional start date selector, *inclusive*, in _yyyy-mm-dd_
         format.
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
+      comparison_metrics: Optional dictionary for comparison metrics reporting.
+        If provided, it should contain the following keys
+        - comparison_metrics (bool): Include comparison metrics section.
+        - start_date_cm (str): Start date selector for comparison metrics,
+            inclusive, in yyyy-mm-dd format.
+        - end_date_cm (str): End date selector for comparison metrics,
+            inclusive, in yyyy-mm-dd format.
+        - digital_channels (list[str]): List of digital channel names to
+            consider for the "Total Digital" row. If not provided, "Total Digital"
+            row will not be included.
     """
+    # Default to empty dict if no comparison metrics provided
+    if comparison_metrics is None:
+      comparison_metrics = {}
+
     os.makedirs(filepath, exist_ok=True)
     with open(os.path.join(filepath, filename), 'w') as f:
-      f.write(self._gen_model_results_summary(start_date, end_date))
+      f.write(
+          self._gen_model_results_summary(
+              start_date, end_date, **comparison_metrics
+          )
+      )
 
   def _gen_model_results_summary(
       self,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
+      **kwargs,
   ) -> str:
     """Generate HTML results summary output (as sanitized content str)."""
     all_dates = self._meridian.input_data.time_coordinates.all_dates
@@ -126,6 +154,45 @@ class Summarizer:
         start_date, end_date
     )
 
+    # Process kwargs for Comparison Metrics
+    comparison_metrics = kwargs.get('comparison_metrics', False)
+    start_date_cm = kwargs.get('start_date_cm')
+    end_date_cm = kwargs.get('end_date_cm')
+    digital_channels = kwargs.get('digital_channels')
+    comparison_selected_times = None
+
+    if comparison_metrics:
+      if start_date_cm is None or end_date_cm is None:
+        raise ValueError(
+            'Both start_date_cm and end_date_cm must be provided when '
+            'comparison_metrics is True.'
+        )
+      start_date_cm = tc.normalize_date(start_date_cm)
+      end_date_cm = tc.normalize_date(end_date_cm)
+      if start_date_cm not in all_dates:
+        raise ValueError(
+            f'start_date_cm ({start_date_cm}) must be in the time coordinates!'
+        )
+      if end_date_cm not in all_dates:
+        raise ValueError(
+            f'end_date_cm ({end_date_cm}) must be in the time coordinates!'
+        )
+      if start_date_cm > end_date_cm:
+        raise ValueError(
+            f'start_date_cm ({start_date_cm}) must be before end_date_cm ({end_date_cm})!'
+        )
+
+      comparison_selected_times = self._meridian.expand_selected_time_dims(
+          start_date_cm, end_date_cm
+      )
+
+    # Create kwargs for Comparison Metrics
+    cm_kwargs = {
+        'comparison_metrics': comparison_metrics,
+        'comparison_selected_times': comparison_selected_times,
+        'digital_channels': digital_channels,
+    }
+
     template_env = formatter.create_template_env()
     template_env.globals[c.START_DATE] = start_date.strftime(
         f'%b {start_date.day}, %Y'
@@ -142,6 +209,7 @@ class Summarizer:
     cards_htmls = self._create_cards_htmls(
         template_env,
         selected_times=selected_times,
+        **cm_kwargs,
     )
 
     return html_template.render(
@@ -152,6 +220,7 @@ class Summarizer:
       self,
       template_env: jinja2.Environment,
       selected_times: Sequence[str] | None,
+      **kwargs,
   ) -> Sequence[str]:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
@@ -187,6 +256,25 @@ class Summarizer:
             reach_frequency=reach_frequency,
         ),
     ]
+
+    # Add Comparison Metrics card if requested
+    if kwargs.get('comparison_metrics'):
+      media_summary_cm = visualizer.MediaSummary(
+          self._meridian,
+          selected_times=kwargs.get('comparison_selected_times'),
+          use_kpi=self._use_kpi,
+      )
+      cards += [
+          self._create_comparison_metrics_card_html(
+              template_env,
+              media_summary=media_summary,
+              media_summary_cm=media_summary_cm,
+              selected_times=selected_times,
+              selected_times_cm=kwargs.get('comparison_selected_times'),
+              digital_channels=kwargs.get('digital_channels'),
+          ),
+      ]
+
     return cards
 
   def _create_model_fit_card_html(
@@ -532,3 +620,600 @@ class Summarizer:
 
   def _kpi_or_revenue(self) -> str:
     return c.KPI.upper() if self._use_kpi else c.REVENUE
+
+  def _create_comparison_metrics_card_html(
+      self,
+      template_env: jinja2.Environment,
+      media_summary: visualizer.MediaSummary,
+      media_summary_cm: visualizer.MediaSummary,
+      selected_times: Sequence[str] | None,
+      selected_times_cm: Sequence[str] | None,
+      digital_channels: Sequence[str] | None = None,
+  ) -> str:
+    """Creates the HTML snippet for the Comparison Metrics card."""
+
+    # Get summary metrics dataframes for both periods
+    period_1_df = media_summary.get_summary_metrics_df()
+    period_2_df = media_summary_cm.get_summary_metrics_df()
+
+    # Get KPI sums for both periods
+    kpi_period_1 = media_summary.get_kpi_sum()
+    kpi_period_2 = media_summary_cm.get_kpi_sum()
+
+    # Get labels for the two comparison periods
+    period_1_label, period_2_label = self._get_labels_for_comparison_metrics(
+        selected_times, selected_times_cm
+    )
+
+    kpi_resume_table = self._create_kpi_comparison_table_spec(
+        kpi_period_1,
+        kpi_period_2,
+    )
+
+    spend_resume_table = self._create_spend_comparison_table_spec(
+        period_1_df,
+        period_2_df,
+        digital_channels,
+    )
+
+    contribution_resume_table = self._create_contribution_comparison_table_spec(
+        period_1_df,
+        period_2_df,
+    )
+
+    kpi_contribution_resume_table = (
+        self._create_kpi_contribution_comparison_table_spec(
+            period_1_df,
+            period_2_df,
+            kpi_period_1,
+            kpi_period_2,
+        )
+    )
+
+    roi_comparison_table = self._create_roi_comparison_table_spec(
+        period_1_df,
+        period_2_df,
+        kpi_period_1,
+        kpi_period_2,
+    )
+
+    spend_comparison_pie_chart = self._create_spend_comparison_pie_chart_spec(
+        period_1_df,
+        media_summary,
+    )
+
+    contribution_comparison_pie_chart = (
+        self._create_contribution_comparison_pie_chart_spec(
+            period_1_df,
+            media_summary,
+        )
+    )
+
+    insights = summary_text.COMPARISON_METRICS_INSIGHTS_FORMAT.format(
+        period_1=period_1_label,
+        period_2=period_2_label,
+    )
+
+    return formatter.create_card_html(
+        template_env,
+        COMPARISON_METRICS_CARD_SPEC,
+        insights,
+        [
+            kpi_resume_table,
+            spend_resume_table,
+            contribution_resume_table,
+            kpi_contribution_resume_table,
+            roi_comparison_table,
+            spend_comparison_pie_chart,
+            contribution_comparison_pie_chart,
+        ],
+    )
+
+  def _get_labels_for_comparison_metrics(
+      self,
+      selected_times: Sequence[str] | None,
+      selected_times_cm: Sequence[str] | None,
+  ) -> tuple[str, str]:
+    """Generates labels for the two comparison periods based on selected times."""
+
+    # Check that both selected_times and selected_times_cm are provided
+    if selected_times is None or selected_times_cm is None:
+      raise ValueError(
+          'Both selected_times and selected_times_cm must be provided when '
+          'comparison_metrics is True.'
+      )
+
+    interval_days = self._meridian.input_data.time_coordinates.interval_days
+
+    start_date_normalized = tc.normalize_date(selected_times[0])
+    end_date_normalized = tc.normalize_date(selected_times[-1])
+    start_date_cm_normalized = tc.normalize_date(selected_times_cm[0])
+    end_date_cm_normalized = tc.normalize_date(selected_times_cm[-1])
+
+    start_date = start_date_normalized.strftime(
+        f'%b {start_date_normalized.day}, %Y'
+    )
+    end_date_adjusted = end_date_normalized + pd.Timedelta(days=interval_days)
+    end_date = end_date_adjusted.strftime(f'%b {end_date_adjusted.day}, %Y')
+    period_1_label = f'{start_date} to {end_date}'
+
+    start_date_cm = start_date_cm_normalized.strftime(
+        f'%b {start_date_cm_normalized.day}, %Y'
+    )
+    end_date_cm_adjusted = end_date_cm_normalized + pd.Timedelta(
+        days=interval_days
+    )
+    end_date_cm = end_date_cm_adjusted.strftime(
+        f'%b {end_date_cm_adjusted.day}, %Y'
+    )
+    period_2_label = f'{start_date_cm} to {end_date_cm}'
+
+    return period_1_label, period_2_label
+
+  def _create_kpi_comparison_table_spec(
+      self, kpi_period_1: float, kpi_period_2: float
+  ) -> formatter.TableSpec:
+    """Creates the KPI comparison table spec."""
+
+    # Column headers for the comparison table
+    column_names = [
+        'Period 1',
+        'Period 2',
+        'Var %',
+        'Var Abs',
+    ]
+
+    # Define KPI comparison values
+    kpi_df = pd.DataFrame(
+        {'period_1': [kpi_period_1], 'period_2': [kpi_period_2]}
+    )
+    kpi_df['var_pct'] = (kpi_df['period_1'] / kpi_df['period_2']) - 1
+    kpi_df['var_abs'] = kpi_df['period_1'] - kpi_df['period_2']
+
+    # Format KPI comparison values
+    fmt_num = partial(formatter.format_number_cm, decimals=0)
+    fmt_var_pct = partial(formatter.format_var_percent, decimals=2)
+    fmt_var_num = partial(formatter.format_var_number, decimals=0)
+
+    kpi_df['period_1'] = kpi_df['period_1'].apply(fmt_num)
+    kpi_df['period_2'] = kpi_df['period_2'].apply(fmt_num)
+    kpi_df['var_pct'] = kpi_df['var_pct'].apply(fmt_var_pct)
+    kpi_df['var_abs'] = kpi_df['var_abs'].apply(fmt_var_num)
+
+    # Create TableSpec for KPI comparison
+    kpi_resume_table = formatter.TableSpec(
+        id=summary_text.KPI_COMPARISON_ID,
+        title=summary_text.KPI_COMPARISON_TITLE,
+        description=summary_text.KPI_COMPARISON_DESCRIPTION,
+        column_headers=column_names,
+        row_values=kpi_df.values.tolist(),
+    )
+
+    return kpi_resume_table
+
+  def _create_spend_comparison_table_spec(
+      self,
+      period_1_df: pd.DataFrame,
+      period_2_df: pd.DataFrame,
+      digital_channels: Sequence[str] | None = None,
+  ) -> formatter.TableSpec:
+    """Creates the Spend comparison table spec."""
+
+    # Column headers for the comparison table
+    column_names = [
+        'Channel',
+        'Period 1',
+        'Period 2',
+        'Var %',
+        'Var Abs',
+    ]
+
+    # Define Spend comparison values
+    spend_period_1 = period_1_df.set_index('channel')[c.SPEND]
+    spend_period_2 = period_2_df.set_index('channel')[c.SPEND]
+    spend_comparison_df = pd.DataFrame(
+        {
+            'period_1': spend_period_1,
+            'period_2': spend_period_2,
+        }
+    ).fillna(0)
+    spend_comparison_df['var_pct'] = (
+        spend_comparison_df['period_1'] / spend_comparison_df['period_2']
+    ) - 1
+    spend_comparison_df['var_abs'] = (
+        spend_comparison_df['period_1'] - spend_comparison_df['period_2']
+    )
+    spend_df = spend_comparison_df.reset_index()
+
+    # Replace 'All Channels' with 'Total' in channel names
+    spend_df['channel'] = spend_df['channel'].replace('All Channels', 'Total')
+
+    # Create 'Digital' row
+    if digital_channels is not None:
+      digital_sum = spend_df[spend_df['channel'].isin(digital_channels)].sum(
+          numeric_only=True
+      )
+      digital_row = {
+          'channel': 'Digital',
+          'period_1': digital_sum['period_1'],
+          'period_2': digital_sum['period_2'],
+          'var_pct': digital_sum['period_1'] / digital_sum['period_2'] - 1,
+          'var_abs': digital_sum['period_1'] - digital_sum['period_2'],
+      }
+      spend_df = pd.concat([spend_df, pd.DataFrame([digital_row])]).reset_index(
+          drop=True
+      )
+
+    # Format Spend comparison values
+    fmt_num = partial(formatter.format_number_cm, decimals=1)
+    fmt_var_pct = partial(formatter.format_var_percent, decimals=2)
+    fmt_var_num = partial(formatter.format_var_number, decimals=1)
+
+    spend_df['period_1'] = spend_df['period_1'].apply(fmt_num)
+    spend_df['period_2'] = spend_df['period_2'].apply(fmt_num)
+    spend_df['var_pct'] = spend_df['var_pct'].apply(fmt_var_pct)
+    spend_df['var_abs'] = spend_df['var_abs'].apply(fmt_var_num)
+
+    # Create TableSpec for Spend comparison
+    spend_resume_table = formatter.TableSpec(
+        id=summary_text.SPEND_COMPARISON_ID,
+        title=summary_text.SPEND_COMPARISON_TITLE,
+        description=summary_text.SPEND_COMPARISON_DESCRIPTION,
+        column_headers=column_names,
+        row_values=spend_df.values.tolist(),
+    )
+
+    return spend_resume_table
+
+  def _create_contribution_comparison_table_spec(
+      self, period_1_df: pd.DataFrame, period_2_df: pd.DataFrame
+  ) -> formatter.TableSpec:
+    """Creates the Contribution comparison table spec."""
+
+    # Column headers for the comparison table
+    column_names = [
+        'Channel',
+        'Period 1',
+        'Period 2',
+        'Var pp',
+    ]
+
+    # Define Contribution comparison values
+    contribution_period_1 = period_1_df.set_index('channel')[
+        c.PCT_OF_CONTRIBUTION
+    ].div(100)
+    contribution_period_2 = period_2_df.set_index('channel')[
+        c.PCT_OF_CONTRIBUTION
+    ].div(100)
+    contribution_comparison_df = pd.DataFrame(
+        {
+            'period_1': contribution_period_1,
+            'period_2': contribution_period_2,
+        }
+    ).fillna(0)
+    contribution_comparison_df['var_abs'] = (
+        contribution_comparison_df['period_1']
+        - contribution_comparison_df['period_2']
+    )
+    contribution_df = contribution_comparison_df.reset_index()
+
+    # Replace 'All Channels' with 'MediaAtr' in channel names
+    contribution_df['channel'] = contribution_df['channel'].replace(
+        'All Channels', 'MediaAtr'
+    )
+
+    # Create 'Baseline' row
+    baseline_pct_1 = (
+        1
+        - contribution_df[contribution_df['channel'] == 'MediaAtr'][
+            'period_1'
+        ].item()
+    )
+    baseline_pct_2 = (
+        1
+        - contribution_df[contribution_df['channel'] == 'MediaAtr'][
+            'period_2'
+        ].item()
+    )
+    baseline_row = {
+        'channel': 'Baseline',
+        'period_1': baseline_pct_1,
+        'period_2': baseline_pct_2,
+        'var_abs': baseline_pct_1 - baseline_pct_2,
+    }
+    contribution_df = pd.concat(
+        [contribution_df, pd.DataFrame([baseline_row])]
+    ).reset_index(drop=True)
+
+    # Format Contribution comparison values
+    fmt_pct = partial(formatter.format_percent_cm, decimals=1)
+    fmt_var_pp = partial(formatter.format_var_pp, decimals=2)
+
+    contribution_df['period_1'] = contribution_df['period_1'].apply(fmt_pct)
+    contribution_df['period_2'] = contribution_df['period_2'].apply(fmt_pct)
+    contribution_df['var_abs'] = contribution_df['var_abs'].apply(fmt_var_pp)
+
+    # Create TableSpec for Contribution comparison
+    contribution_resume_table = formatter.TableSpec(
+        id=summary_text.CONTRIBUTION_COMPARISON_ID,
+        title=summary_text.CONTRIBUTION_COMPARISON_TITLE,
+        description=summary_text.CONTRIBUTION_COMPARISON_DESCRIPTION,
+        column_headers=column_names,
+        row_values=contribution_df.values.tolist(),
+    )
+
+    return contribution_resume_table
+
+  def _create_kpi_contribution_comparison_table_spec(
+      self,
+      period_1_df: pd.DataFrame,
+      period_2_df: pd.DataFrame,
+      kpi_period_1: float,
+      kpi_period_2: float,
+  ) -> formatter.TableSpec:
+    """Creates the KPI Contribution comparison table spec."""
+
+    # Column headers for the comparison table
+    column_names = [
+        'Channel',
+        'Period 1',
+        'Period 2',
+        'Var %',
+        'Var Abs',
+    ]
+
+    # Define KPI Contribution comparison values
+    # TODO: Debería tomarse de c.INCREMENTAL_OUTCOME y evitar el cálculo manual.
+    kpi_contribution_period_1 = (
+        period_1_df.set_index('channel')[c.PCT_OF_CONTRIBUTION].div(100)
+        * kpi_period_1
+    )
+    kpi_contribution_period_2 = (
+        period_2_df.set_index('channel')[c.PCT_OF_CONTRIBUTION].div(100)
+        * kpi_period_2
+    )
+    kpi_contribution_comparison_df = pd.DataFrame(
+        {
+            'period_1': kpi_contribution_period_1,
+            'period_2': kpi_contribution_period_2,
+        }
+    ).fillna(0)
+
+    kpi_contribution_comparison_df['var_pct'] = (
+        kpi_contribution_comparison_df['period_1']
+        / kpi_contribution_comparison_df['period_2']
+    ) - 1
+    kpi_contribution_comparison_df['var_abs'] = (
+        kpi_contribution_comparison_df['period_1']
+        - kpi_contribution_comparison_df['period_2']
+    )
+    kpi_contribution_comparison_df = (
+        kpi_contribution_comparison_df.reset_index()
+    )
+
+    # Replace 'All Channels' with 'MediaAtr' in channel names
+    kpi_contribution_comparison_df['channel'] = kpi_contribution_comparison_df[
+        'channel'
+    ].replace('All Channels', 'MediaAtr')
+
+    # Create "Baseline" row
+    baseline_pct_1 = (
+        kpi_period_1
+        - kpi_contribution_comparison_df[
+            kpi_contribution_comparison_df['channel'] == 'MediaAtr'
+        ]['period_1'].item()
+    )
+    baseline_pct_2 = (
+        kpi_period_2
+        - kpi_contribution_comparison_df[
+            kpi_contribution_comparison_df['channel'] == 'MediaAtr'
+        ]['period_2'].item()
+    )
+    baseline_row = {
+        'channel': 'Baseline',
+        'period_1': baseline_pct_1,
+        'period_2': baseline_pct_2,
+        'var_pct': (baseline_pct_1 / baseline_pct_2) - 1,
+        'var_abs': baseline_pct_1 - baseline_pct_2,
+    }
+    kpi_contribution_comparison_df = pd.concat(
+        [kpi_contribution_comparison_df, pd.DataFrame([baseline_row])]
+    ).reset_index(drop=True)
+
+    # Format KPI Contribution comparison values
+    fmt_num = partial(formatter.format_number_cm, decimals=0)
+    fmt_var_pct = partial(formatter.format_var_percent, decimals=2)
+    fmt_var_num = partial(formatter.format_var_number, decimals=0)
+
+    kpi_contribution_comparison_df['period_1'] = kpi_contribution_comparison_df[
+        'period_1'
+    ].apply(fmt_num)
+    kpi_contribution_comparison_df['period_2'] = kpi_contribution_comparison_df[
+        'period_2'
+    ].apply(fmt_num)
+    kpi_contribution_comparison_df['var_pct'] = kpi_contribution_comparison_df[
+        'var_pct'
+    ].apply(fmt_var_pct)
+    kpi_contribution_comparison_df['var_abs'] = kpi_contribution_comparison_df[
+        'var_abs'
+    ].apply(fmt_var_num)
+
+    # Create TableSpec for KPI Contribution comparison
+    kpi_contribution_resume_table = formatter.TableSpec(
+        id=summary_text.KPI_CONTRIBUTION_COMPARISON_ID,
+        title=summary_text.KPI_CONTRIBUTION_COMPARISON_TITLE,
+        description=summary_text.KPI_CONTRIBUTION_COMPARISON_DESCRIPTION,
+        column_headers=column_names,
+        row_values=kpi_contribution_comparison_df.values.tolist(),
+    )
+
+    return kpi_contribution_resume_table
+
+  def _create_roi_comparison_table_spec(
+      self,
+      period_1_df: pd.DataFrame,
+      period_2_df: pd.DataFrame,
+      kpi_period_1: float,
+      kpi_period_2: float,
+  ) -> formatter.TableSpec:
+    """Creates the ROI comparison table spec."""
+
+    # Column headers for the comparison table
+    column_names = [
+        'Period 1',
+        'Period 2',
+        'Var %',
+        'Var Abs',
+    ]
+
+    # Define ROI comparison values
+    # TODO: Debería tomarse de c.ROI y evitar el cálculo manual.
+    kpi_contribution_period_1 = (
+        period_1_df.set_index('channel')[c.PCT_OF_CONTRIBUTION].div(100)
+        * kpi_period_1
+    )
+    kpi_contribution_period_2 = (
+        period_2_df.set_index('channel')[c.PCT_OF_CONTRIBUTION].div(100)
+        * kpi_period_2
+    )
+    kpi_contribution_comparison_df = pd.DataFrame(
+        {
+            'period_1': kpi_contribution_period_1,
+            'period_2': kpi_contribution_period_2,
+        }
+    ).fillna(0)
+
+    spend_period_1 = period_1_df.set_index('channel')[c.SPEND]
+    spend_period_2 = period_2_df.set_index('channel')[c.SPEND]
+    spend_comparison_df = pd.DataFrame(
+        {
+            'period_1': spend_period_1,
+            'period_2': spend_period_2,
+        }
+    ).fillna(0)
+
+    # Calculate ROI for both periods
+    roi_comparison_df = kpi_contribution_comparison_df.merge(
+        spend_comparison_df,
+        left_index=True,
+        right_index=True,
+        suffixes=('_kpi_contribution', '_spend'),
+    )
+    roi_comparison_df['roi_period_1'] = (
+        roi_comparison_df['period_1_kpi_contribution']
+        / roi_comparison_df['period_1_spend']
+    )
+    roi_comparison_df['roi_period_2'] = (
+        roi_comparison_df['period_2_kpi_contribution']
+        / roi_comparison_df['period_2_spend']
+    )
+
+    # Select only ROI columns and 'All Channels' row
+    roi_comparison_df = roi_comparison_df.loc[['All Channels']]
+    roi_comparison_df = roi_comparison_df.reset_index()
+    roi_comparison_df = roi_comparison_df[['roi_period_1', 'roi_period_2']]
+
+    # Calculate variances
+    roi_comparison_df['var_pct'] = (
+        roi_comparison_df['roi_period_1'] / roi_comparison_df['roi_period_2']
+    ) - 1
+    roi_comparison_df['var_abs'] = (
+        roi_comparison_df['roi_period_1'] - roi_comparison_df['roi_period_2']
+    )
+
+    # Format ROI comparison values
+    fmt_num = partial(formatter.format_number_cm, decimals=1)
+    fmt_var_pct = partial(formatter.format_var_percent, decimals=2)
+    fmt_var_num = partial(formatter.format_var_number, decimals=1)
+
+    roi_comparison_df['roi_period_1'] = roi_comparison_df['roi_period_1'].apply(
+        fmt_num
+    )
+    roi_comparison_df['roi_period_2'] = roi_comparison_df['roi_period_2'].apply(
+        fmt_num
+    )
+    roi_comparison_df['var_pct'] = roi_comparison_df['var_pct'].apply(
+        fmt_var_pct
+    )
+    roi_comparison_df['var_abs'] = roi_comparison_df['var_abs'].apply(
+        fmt_var_num
+    )
+
+    # Create TableSpec for ROI comparison
+    roi_comparison_table = formatter.TableSpec(
+        id=summary_text.ROI_COMPARISON_ID,
+        title=summary_text.ROI_COMPARISON_TITLE,
+        description=summary_text.ROI_COMPARISON_DESCRIPTION,
+        column_headers=column_names,
+        row_values=roi_comparison_df.values.tolist(),
+    )
+
+    return roi_comparison_table
+
+  def _create_spend_comparison_pie_chart_spec(
+      self,
+      period_1_df: pd.DataFrame,
+      media_summary: visualizer.MediaSummary,
+  ) -> formatter.ChartSpec:
+    """Creates the spend comparison pie chart spec."""
+
+    # Define Spend pie chart values
+    spend_period_1 = period_1_df.set_index('channel')[c.SPEND]
+    spend_period_1 = spend_period_1.fillna(0)
+
+    # Filter > 0 spend channels and exclude 'All Channels'
+    spend_pie_chart = spend_period_1[spend_period_1 > 0]
+    spend_pie_chart = spend_pie_chart[spend_pie_chart.index != 'All Channels']
+    spend_df = spend_pie_chart.reset_index()
+
+    # Calculate % of total spend
+    total_spend = spend_df[c.SPEND].sum()
+    spend_df['pct_of_total_spend'] = spend_df[c.SPEND] / total_spend
+
+    # Create ChartSpec for Spend pie chart
+    spend_pie_chart_spec = formatter.ChartSpec(
+        id=summary_text.SPEND_COMPARISON_CHART_ID,
+        description=summary_text.SPEND_COMPARISON_CHART_DESCRIPTION,
+        chart_json=media_summary.plot_spend_comparison_pie_chart(
+            spend_df
+        ).to_json(),
+    )
+
+    return spend_pie_chart_spec
+
+  def _create_contribution_comparison_pie_chart_spec(
+      self,
+      period_1_df: pd.DataFrame,
+      media_summary: visualizer.MediaSummary,
+  ) -> formatter.ChartSpec:
+    """Creates the contribution comparison pie chart spec."""
+
+    # Define contribution pie chart values
+    contribution_period_1 = period_1_df.set_index('channel')[
+        c.PCT_OF_CONTRIBUTION
+    ].div(100)
+    contribution_period_1 = contribution_period_1.fillna(0)
+
+    # Filter > 0 contribution channels and exclude 'All Channels'
+    contribution_pie_chart = contribution_period_1[contribution_period_1 > 0]
+    contribution_pie_chart = contribution_pie_chart[
+        contribution_pie_chart.index != 'All Channels'
+    ]
+    contribution_df = contribution_pie_chart.reset_index()
+
+    # Calculate % of total contribution
+    total_contribution = contribution_df[c.PCT_OF_CONTRIBUTION].sum()
+    contribution_df['pct_of_total_contribution'] = (
+        contribution_df[c.PCT_OF_CONTRIBUTION] / total_contribution
+    )
+
+    # Create ChartSpec for Spend pie chart
+    contribution_pie_chart_spec = formatter.ChartSpec(
+        id=summary_text.CONTRIBUTION_COMPARISON_CHART_ID,
+        description=summary_text.CONTRIBUTION_COMPARISON_CHART_DESCRIPTION,
+        chart_json=media_summary.plot_contribution_comparison_pie_chart(
+            contribution_df
+        ).to_json(),
+    )
+
+    return contribution_pie_chart_spec

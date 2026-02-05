@@ -128,6 +128,76 @@ def format_percent(percent: float) -> str:
     return '{:.1g}%'.format(percent * 100)
 
 
+def format_var_number(n: float, decimals: int) -> str:
+  """
+  Formats a number with thousands separators and given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  fmt = f'{{:,.{decimals}f}}'
+  fmt_replaces = (
+      fmt.format(n).replace(',', 'X').replace('.', ',').replace('X', '.')
+  )
+  return sign + fmt_replaces
+
+
+def format_var_pp(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage point with given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  n_formatted = f'{n * 100:.{decimals}f} pp'
+  return f'{sign}{n_formatted}'
+
+
+def format_var_percent(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage with given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  n_formatted = f'{n * 100:.{decimals}f}%'
+  return f'{sign}{n_formatted}'
+
+
+def format_percent_cm(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage with given decimal places.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  n_formatted = f'{n * 100:.{decimals}f}%'
+  return n_formatted
+
+
+def format_number_cm(n: float, decimals: int) -> str:
+  """
+  Formats a number with thousands separators and given decimal places.
+  """
+  fmt = f'{{:,.{decimals}f}}'
+  fmt_replaces = (
+      fmt.format(n).replace(',', 'X').replace('.', ',').replace('X', '.')
+  )
+  return fmt_replaces
+
+
 def compact_number(n: float, precision: int = 0, currency: str = '') -> str:
   """Formats a number into a compact notation to the specified precision.
 

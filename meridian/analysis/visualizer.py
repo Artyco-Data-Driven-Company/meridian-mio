@@ -317,13 +317,17 @@ class ModelDiagnostics:
         {k: backend.einsum('ij...->ji...', v) for k, v in mcmc_states.items()}
     ).items():
       rhat_temp = np.asarray(v).flatten()
-      rhat = pd.concat([
-          rhat,
-          pd.DataFrame({
-              c.PARAMETER: np.repeat(k, len(rhat_temp)),
-              c.RHAT: rhat_temp,
-          }),
-      ])
+      rhat = pd.concat(
+          [
+              rhat,
+              pd.DataFrame(
+                  {
+                      c.PARAMETER: np.repeat(k, len(rhat_temp)),
+                      c.RHAT: rhat_temp,
+                  }
+              ),
+          ]
+      )
 
     # If the MCMC sampling fails, the r-hat value calculated will be very large.
     if (rhat[c.RHAT] > 1e10).any():
@@ -1561,10 +1565,12 @@ class MediaSummary:
           .rename({c.MEAN: 'central_tendency'})
       )
     else:  # not include_non_paid_channels
-      percentage_metrics.extend([
-          c.PCT_OF_IMPRESSIONS,
-          c.PCT_OF_SPEND,
-      ])
+      percentage_metrics.extend(
+          [
+              c.PCT_OF_IMPRESSIONS,
+              c.PCT_OF_SPEND,
+          ]
+      )
       monetary_metrics = [c.CPM, c.CPIK] + [
           c.SPEND,
           c.INCREMENTAL_OUTCOME,
@@ -1683,17 +1689,21 @@ class MediaSummary:
 
     # Ensure proper ordering for the stacked area chart. Baseline should be at
     # the bottom. Separate the *stacking* order from the *legend* order.
-    stack_order = sorted([
-        channel
-        for channel in outcome_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ]) + [c.BASELINE]
+    stack_order = sorted(
+        [
+            channel
+            for channel in outcome_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    ) + [c.BASELINE]
 
-    legend_order = [c.BASELINE] + sorted([
-        channel
-        for channel in outcome_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ])
+    legend_order = [c.BASELINE] + sorted(
+        [
+            channel
+            for channel in outcome_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    )
 
     # Get the minimum incremental outcome for baseline across all time periods
     # as the lower bound for the stacked area chart.
@@ -1812,11 +1822,13 @@ class MediaSummary:
       tooltip_time_format = c.DATE_FORMAT
       tooltip_time_title = 'Week'
 
-    legend_order = [c.BASELINE] + sorted([
-        channel
-        for channel in plot_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ])
+    legend_order = [c.BASELINE] + sorted(
+        [
+            channel
+            for channel in plot_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    )
 
     plot = (
         alt.Chart(plot_df, width=c.VEGALITE_FACET_EXTRA_LARGE_WIDTH)
@@ -2532,12 +2544,14 @@ class MediaSummary:
           index=[0],
       )
     else:
-      return pd.DataFrame({
-          c.TIME: self._selected_times or summary_metrics.time.values,
-          c.CHANNEL: c.BASELINE,
-          c.INCREMENTAL_OUTCOME: baseline_outcome.values,
-          c.PCT_OF_CONTRIBUTION: baseline_pct.values,
-      })
+      return pd.DataFrame(
+          {
+              c.TIME: self._selected_times or summary_metrics.time.values,
+              c.CHANNEL: c.BASELINE,
+              c.INCREMENTAL_OUTCOME: baseline_outcome.values,
+              c.PCT_OF_CONTRIBUTION: baseline_pct.values,
+          }
+      )
 
   def _transform_contribution_spend_metrics(self) -> pd.DataFrame:
     """Transforms the media metrics for the spend vs contribution plot.
@@ -2657,4 +2671,134 @@ class MediaSummary:
         )
         .reset_index()
         .rename(columns={central_tendency: metric})
+    )
+
+  def get_kpi_sum(self) -> float:
+    """
+    Returns the sum of the KPI values over the selected time periods.
+    """
+    df_kpi = self._meridian.input_data.kpi.to_dataframe().reset_index()
+    kpi_sum = df_kpi.loc[df_kpi['time'].isin(self._selected_times), 'kpi'].sum()
+
+    return float(kpi_sum)
+
+  def get_summary_metrics_df(self) -> pd.DataFrame:
+    """
+    Returns a DataFrame that summarizes key summary metrics for each channel.
+    The DataFrame includes the following metrics:
+
+    - c.INCREMENTAL_OUTCOME
+    - c.PCT_OF_CONTRIBUTION
+    - c.SPEND
+    - c.ROI
+
+    The DataFrame includes only the posterior mean values for each metric.
+    """
+
+    summary_metrics = self.get_paid_summary_metrics(aggregate_times=True)
+
+    metrics = [c.INCREMENTAL_OUTCOME, c.PCT_OF_CONTRIBUTION, c.SPEND, c.ROI]
+
+    metrics_dataset = summary_metrics[metrics].sel(
+        distribution=c.POSTERIOR, metric=c.MEAN
+    )
+
+    metrics_dataset = (
+        metrics_dataset.to_dataframe()
+        .drop(columns=[c.METRIC, c.DISTRIBUTION])
+        .reset_index()
+    )
+
+    return metrics_dataset
+
+  def plot_spend_comparison_pie_chart(
+      self, spend_df: pd.DataFrame
+  ) -> alt.Chart:
+    """Plots a pie chart of the total spend from channels.
+
+    Returns:
+      An Altair plot showing the spend for all channels.
+    """
+    base = alt.Chart(spend_df).encode(
+        theta=alt.Theta(f'{c.SPEND}:Q', stack=True),
+        color=alt.Color(
+            f'{c.CHANNEL}:N',
+            legend=alt.Legend(title=None, rowPadding=c.PADDING_10, offset=-25),
+        ),
+    )
+
+    # Pie chart arcs
+    pie = base.mark_arc().encode(
+        tooltip=[
+            c.CHANNEL,
+            c.SPEND,
+            alt.Tooltip(
+                'pct_of_total_spend:Q', format='.1%', title='% of total'
+            ),
+        ]
+    )
+
+    # Text labels with percentages
+    text = base.mark_text(
+        radius=125,
+        fill='white',
+        size=14,
+        font=c.FONT_ROBOTO,
+    ).encode(text=alt.Text(f'{"pct_of_total_spend"}:Q', format='.0%'))
+
+    return (
+        alt.layer(pie, text, data=spend_df)
+        .configure_view(stroke=None)
+        .properties(
+            title=formatter.custom_title_params(
+                summary_text.SPEND_COMPARISON_CHART_TITLE
+            ),
+            width=c.VEGALITE_FACET_DEFAULT_WIDTH,
+        )
+    )
+
+  def plot_contribution_comparison_pie_chart(
+      self, contribution_df: pd.DataFrame
+  ) -> alt.Chart:
+    """Plots a pie chart of the total contribution from channels.
+
+    Returns:
+      An Altair plot showing the contribution for all channels.
+    """
+    base = alt.Chart(contribution_df).encode(
+        theta=alt.Theta(f'{c.PCT_OF_CONTRIBUTION}:Q', stack=True),
+        color=alt.Color(
+            f'{c.CHANNEL}:N',
+            legend=alt.Legend(title=None, rowPadding=c.PADDING_10, offset=-25),
+        ),
+    )
+
+    # Pie chart arcs
+    pie = base.mark_arc().encode(
+        tooltip=[
+            c.CHANNEL,
+            c.PCT_OF_CONTRIBUTION,
+            alt.Tooltip(
+                'pct_of_total_contribution:Q', format='.1%', title='% of total'
+            ),
+        ]
+    )
+
+    # Text labels with percentages
+    text = base.mark_text(
+        radius=125,
+        fill='white',
+        size=14,
+        font=c.FONT_ROBOTO,
+    ).encode(text=alt.Text(f'{"pct_of_total_contribution"}:Q', format='.0%'))
+
+    return (
+        alt.layer(pie, text, data=contribution_df)
+        .configure_view(stroke=None)
+        .properties(
+            title=formatter.custom_title_params(
+                summary_text.CONTRIBUTION_COMPARISON_CHART_TITLE
+            ),
+            width=c.VEGALITE_FACET_DEFAULT_WIDTH,
+        )
     )
