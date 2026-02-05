@@ -591,14 +591,20 @@ class OptimizationResults:
     with open(os.path.join(filepath, filename), 'w') as f:
       f.write(self._gen_optimization_summary(currency))
 
-  def plot_incremental_outcome_delta(self) -> alt.Chart:
+  def plot_incremental_outcome_delta(self, df_dict: dict = {}, custom_d_e: tuple = ()) -> alt.Chart:
     """Plots a waterfall chart showing the change in incremental outcome."""
     outcome = self._kpi_or_revenue
     if outcome == c.REVENUE:
       y_axis_label = summary_text.INC_REVENUE_LABEL
     else:
       y_axis_label = summary_text.INC_KPI_LABEL
-    df = self._transform_outcome_delta_data()
+
+    if df_dict:
+      df = pd.DataFrame(df_dict.items(), columns=["channel", "incremental_outcome"])
+      df.index = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+    else:
+      df = self._transform_outcome_delta_data()
+
     base = (
         alt.Chart(df)
         .transform_window(
@@ -660,10 +666,15 @@ class OptimizationResults:
     # the y-axis from the non-optimized total incremental outcome value.
     sum_decr = df[df.incremental_outcome < 0].incremental_outcome.sum()
     y_padding = float(f'1e{int(math.log10(-sum_decr))}') if sum_decr < 0 else 2
-    domain_scale = [
-        self.nonoptimized_data.total_incremental_outcome + sum_decr - y_padding,
-        self.optimized_data.total_incremental_outcome + y_padding,
-    ]
+
+    if custom_d_e:
+      domain_scale = [np.float64(custom_d_e[0]), np.float64(custom_d_e[1])]
+    else:
+      domain_scale = [
+          self.nonoptimized_data.total_incremental_outcome + sum_decr - y_padding,
+          self.optimized_data.total_incremental_outcome + y_padding,
+      ]
+
     bar = base.mark_bar(
         size=c.BAR_SIZE, clip=True, cornerRadius=c.CORNER_RADIUS
     ).encode(
@@ -1034,9 +1045,26 @@ class OptimizationResults:
     else:
       return merged_df
 
-  def _get_delta_data(self, metric: str) -> pd.DataFrame:
+  def _get_delta_data(self, metric: str, metric_int: str | None = None) -> pd.DataFrame:
     """Calculates and sorts the optimized delta for the specified metric."""
     delta = self.optimized_data[metric] - self.nonoptimized_data[metric]
+
+    if metric_int:
+      # 1. Extraer los dataframes
+      df_opt = self.optimized_data[metric].to_dataframe().reset_index()
+      df_nonopt = self.nonoptimized_data[metric].to_dataframe().reset_index()
+
+      # 2. Filtrar por mean si es incremental outcome
+      if metric == 'incremental_outcome':
+        df_opt = df_opt[df_opt['metric'] == c.MEAN][['channel', metric]]
+        df_nonopt = df_nonopt[df_nonopt['metric'] == c.MEAN][['channel', metric]]
+
+      if metric_int == 'nonopt':
+        return df_nonopt
+
+      if metric_int == 'opt':
+        return df_opt
+
     if c.METRIC in delta.dims:
       delta = delta.sel(metric=c.MEAN, drop=True)
     df = delta.to_dataframe().reset_index()
