@@ -26,3 +26,9 @@ poetry.lock
 
 # pyenv, virtualenv artifacts.
 .python-version
+
+# Environments
+.venv_meridian/
+
+# Compiled style.css
+meridian/analysis/templates/style.css

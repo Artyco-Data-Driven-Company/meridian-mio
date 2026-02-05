@@ -1,7 +1,7 @@
 [project]
 # Project metadata. Available keys are documented at:
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata
-name = "google-meridian"
+name = "google-meridian-mio"
 description = """\
   Google's open source mixed marketing model library, helps you understand \
   your return on investment and direct your ad spend with confidence. \
@@ -28,6 +28,7 @@ keywords = [
 dependencies = [
   "arviz",
   "altair >= 5",
+  "google-cloud-storage == 3.9.0",
   "immutabledict",
   "joblib",
   "natsort >= 7.1.1, < 8",
@@ -38,6 +39,7 @@ dependencies = [
   "statsmodels >= 0.12.2",
   "tensorflow >= 2.18, < 2.19",
   "tensorflow-probability >= 0.25, < 0.26",
+  "tqdm == 4.67.2",
   "tf-keras >= 2.18, < 2.19",
   "xarray",
 ]
