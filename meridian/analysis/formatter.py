@@ -65,8 +65,8 @@ class StatsSpec:
 
 
 TEXT_CONFIG = immutabledict.immutabledict({
-    'titleFont': c.FONT_ROBOTO,
-    'labelFont': c.FONT_ROBOTO,
+    'titleFont': c.FONT_SPACE_GROTESK,
+    'labelFont': c.FONT_SPACE_GROTESK,
     'titleFontWeight': 'normal',
     'titleFontSize': c.AXIS_FONT_SIZE,
     'labelFontSize': c.AXIS_FONT_SIZE,
@@ -86,6 +86,16 @@ AXIS_CONFIG = immutabledict.immutabledict({
     'domainColor': c.GREY_300,
 })
 
+LABEL_CONFIG = immutabledict.immutabledict({
+    'labelFont': c.FONT_SPACE_GROTESK,
+    'labelFontSize': c.AXIS_FONT_SIZE,
+    'labelColor': c.GREY_700,
+    'titleFont': c.FONT_SPACE_GROTESK,
+    'titleFontSize': c.AXIS_FONT_SIZE,
+    'titleColor': c.GREY_700,
+    'titleFontWeight': 'normal',
+})
+
 
 _template_loader = jinja2.FileSystemLoader(
     os.path.abspath(os.path.dirname(__file__)) + '/templates'
@@ -98,7 +108,7 @@ def custom_title_params(title: str) -> alt.TitleParams:
       text=title,
       anchor='start',
       fontSize=c.TITLE_FONT_SIZE,
-      font=c.FONT_GOOGLE_SANS_DISPLAY,
+      font=c.FONT_SPACE_GROTESK,
       fontWeight='normal',
       offset=c.PADDING_10,
       color=c.GREY_800,

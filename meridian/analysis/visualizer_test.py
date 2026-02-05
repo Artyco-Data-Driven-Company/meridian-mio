@@ -830,7 +830,7 @@ class ReachAndFrequencyTest(parameterized.TestCase):
 
     self.assertEqual(label_freq_mark.align, "left")
     self.assertEqual(label_freq_mark.dy, -5)
-    self.assertEqual(label_freq_mark.font, c.FONT_ROBOTO)
+    self.assertEqual(label_freq_mark.font, c.FONT_SPACE_GROTESK)
     self.assertEqual(label_freq_mark.fontSize, 12)
     self.assertEqual(label_freq_mark.fontWeight, "lighter")
     self.assertEqual(label_freq_mark.type, "text")
@@ -2400,10 +2400,10 @@ class MediaSummaryTest(parameterized.TestCase):
         config["axis"],
         {
             "labelColor": c.GREY_700,
-            "labelFont": c.FONT_ROBOTO,
+            "labelFont": c.FONT_SPACE_GROTESK,
             "labelFontSize": c.AXIS_FONT_SIZE,
             "titleColor": c.GREY_700,
-            "titleFont": c.FONT_ROBOTO,
+            "titleFont": c.FONT_SPACE_GROTESK,
             "titleFontSize": c.AXIS_FONT_SIZE,
             "titleFontWeight": "normal",
             "titlePadding": c.PADDING_10,
@@ -2430,7 +2430,7 @@ class MediaSummaryTest(parameterized.TestCase):
         plot.layer[1].mark.to_dict(),
         {
             "fill": "white",
-            "font": c.FONT_ROBOTO,
+            "font": c.FONT_SPACE_GROTESK,
             "radius": 110,
             "size": c.TITLE_FONT_SIZE,
             "type": "text",
@@ -2451,7 +2451,7 @@ class MediaSummaryTest(parameterized.TestCase):
                 "field": c.CHANNEL,
                 "legend": {
                     "direction": "horizontal",
-                    "labelFont": c.FONT_ROBOTO,
+                    "labelFont": c.FONT_SPACE_GROTESK,
                     "labelFontSize": c.AXIS_FONT_SIZE,
                     "legendX": 130,
                     "legendY": 320,

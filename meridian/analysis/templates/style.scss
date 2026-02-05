@@ -21,12 +21,11 @@ $text_grey: var(--Grey-800, #3c4043);
 $text_green: var(--Green-500, #34a853);
 $text_red: var(--Red-600, #d93025);
 
-$google_sans: 'Google Sans Display', 'Google Sans', sans-serif;
-$roboto: Roboto;
+$space_grotesk: 'Space Grotesk';
 
 body {
   background: #fafbfb;
-  font-family: $google_sans;
+  font-family: $space_grotesk;
   -webkit-font-smoothing: antialiased;
   flex-shrink: 0;
 }
@@ -47,7 +46,7 @@ body {
 
 .title {
   color: $title_dark_grey;
-  font-family: $google_sans;
+  font-family: $space_grotesk;
   font-size: 24px;
   font-style: normal;
   font-weight: 400;
@@ -77,7 +76,7 @@ chip {
   color: $chip_blue;
   text-align: center;
 
-  font-family: $google_sans;
+  font-family: $space_grotesk;
   font-size: 14px;
   font-style: normal;
   font-weight: 500;
@@ -104,7 +103,7 @@ card {
     padding: 22px 32px;
 
     color: $title_dark_grey;
-    font-family: $google_sans;
+    font-family: $space_grotesk;
     font-size: 28px;
     font-style: normal;
     font-weight: 400;
@@ -121,7 +120,7 @@ card {
       margin: 0px 25px;
       color: $text_grey;
 
-      font-family: $roboto;
+      font-family: $space_grotesk;
       font-size: 16px;
       font-style: normal;
       font-weight: 400;
@@ -152,7 +151,7 @@ charts {
 
     > chart-description {
       color: $text_grey;
-      font-family: $google_sans;
+      font-family: $space_grotesk;
 
       font-size: 12px;
       font-style: normal;
@@ -167,7 +166,7 @@ charts {
 
     .chart-table-title {
       color: $text_grey;
-      font-family: $google_sans;
+      font-family: $space_grotesk;
       font-size: 18px;
       font-style: normal;
       font-weight: 400;
@@ -177,7 +176,7 @@ charts {
 
     .chart-table-content {
       color: $text_grey;
-      font-family: $roboto;
+      font-family: $space_grotesk;
 
       font-size: 14px;
       font-style: normal;
@@ -208,7 +207,7 @@ charts {
 
     .chart-table-description {
       color: $text_grey;
-      font-family: $google_sans;
+      font-family: $space_grotesk;
 
       font-size: 12px;
       font-style: normal;
@@ -231,7 +230,7 @@ stats-section {
 
     > stats-title {
       color: $title_dark_grey;
-      font-family: $roboto;
+      font-family: $space_grotesk;
       font-size: 14px;
       font-style: normal;
       font-weight: 500;
@@ -241,7 +240,7 @@ stats-section {
 
     > stat {
       color: $text_grey;
-      font-family: $roboto;
+      font-family: $space_grotesk;
       font-size: 32px;
       font-style: normal;
       font-weight: 400;
@@ -250,7 +249,7 @@ stats-section {
 
     > delta {
       color: $text_grey;
-      font-family: $roboto;
+      font-family: $space_grotesk;
       font-size: 18px;
       font-style: normal;
       font-weight: 500;

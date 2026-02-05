@@ -3180,10 +3180,10 @@ class OptimizerPlotsTest(absltest.TestCase):
         config['axis'],
         {
             'labelColor': c.GREY_700,
-            'labelFont': c.FONT_ROBOTO,
+            'labelFont': c.FONT_SPACE_GROTESK,
             'labelFontSize': c.AXIS_FONT_SIZE,
             'titleColor': c.GREY_700,
-            'titleFont': c.FONT_ROBOTO,
+            'titleFont': c.FONT_SPACE_GROTESK,
             'titleFontSize': c.AXIS_FONT_SIZE,
             'titleFontWeight': 'normal',
         },

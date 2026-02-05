@@ -647,11 +647,11 @@ class OptimizationResults:
                     f"datum.channel === '{c.NON_OPTIMIZED}' || datum.channel"
                     f" === '{c.OPTIMIZED}'"
                 ),
-                'value': c.BLUE_500,
+                'value': c.GREY_700,
             },
             {'test': 'datum.incremental_outcome < 0', 'value': c.RED_300},
         ],
-        'value': c.CYAN_400,
+        'value': c.GREEN_300,
     }
 
     # To show the details of the incremental outcome delta, zoom into the plot
@@ -686,7 +686,7 @@ class OptimizationResults:
     )
 
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800
+        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, font=c.FONT_SPACE_GROTESK, color=c.GREY_800
     ).encode(
         text=alt.Text('calc_amount:N'),
         y='text_y:Q',
@@ -775,13 +775,13 @@ class OptimizationResults:
     ).encode(
         color=alt.condition(
             alt.datum.spend > 0,
-            alt.value(c.CYAN_400),
+            alt.value(c.GREEN_300),
             alt.value(c.RED_300),
         ),
     )
 
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, color=c.GREY_800
+        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, font=c.FONT_SPACE_GROTESK, color=c.GREY_800
     ).encode(
         text=alt.Text('text_value:N'),
         y='text_y:Q',

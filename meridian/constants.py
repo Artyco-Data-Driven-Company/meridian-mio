@@ -33,11 +33,17 @@ GREEN_700 = '#188038'
 GREEN_500 = '#34A853'
 GREEN_300 = '#81C995'
 
+PURPLE_700 = "#571A8B"
 PURPLE_500 = '#AF5CF7'
+PURPLE_200 = "#BBA0D3"
 
+RED_500 = "#A78B89"
+RED_700 = "#700F08"
 RED_600 = '#D93025'
 RED_300 = '#F28B82'
 RED_200 = '#FC645B'
+RED_100 = "#F1A5A1"
+
 
 CYAN_500 = '#24C1E0'
 CYAN_400 = '#4ECDE6'
@@ -47,6 +53,64 @@ GREY_800 = '#3C4043'
 GREY_700 = '#5F6368'
 GREY_600 = '#C3C7C9'
 GREY_300 = '#DADCE0'
+
+# SEMANTIC_COLORS = {
+#     "default": {
+#         "kpi": "#1A73E8",            # Azul
+#         "actual": "#34A853",         # Verde
+#         "expected": "#4285F4",       # Azul suave
+#         "baseline": "#F9AB00",       # Amarillo
+#         "delta_pos": "#81C995",      # Verde claro
+#         "delta_neg": "#F28B82",      # Rojo claro
+#         "axis": "#5F6368",           # Gris
+#         "title": "#3C4043",          # Gris oscuro
+#         "text": "#3C4043",
+#     },
+
+#     "client_a": {
+#         "kpi": "#7F3FBF",            # Purple
+#         "actual": "#00B894",         # Turquesa
+#         "expected": "#6C5CE7",
+#         "baseline": "#E17055",
+#         "delta_pos": "#55EFC4",
+#         "delta_neg": "#FF7675",
+#         "axis": "#636E72",
+#         "title": "#2D3436",
+#         "text": "#2D3436",
+#     },
+
+#     "client_b": {
+#         "kpi": "#FF5733",
+#         "actual": "#4CAF50",
+#         "expected": "#3498DB",
+#         "baseline": "#F1C40F",
+#         "delta_pos": "#58D68D",
+#         "delta_neg": "#EC7063",
+#         "axis": "#616A6B",
+#         "title": "#1C2833",
+#         "text": "#1C2833",
+#     },
+# }
+
+# from .semantic_colors import SEMANTIC_COLORS
+
+# class ThemeManager:
+#     def __init__(self, client="default"):
+#         self.colors = SEMANTIC_COLORS.get(client, SEMANTIC_COLORS["default"])
+
+#     def color(self, token: str):
+#         return self.colors[token]
+
+# theme = ThemeManager(client="client_a")
+
+# from styles.theme_manager import theme
+
+# color=alt.condition(
+#     alt.datum.spend > 0,
+#     alt.value(theme.color("delta_pos")),   # antes c.GREEN_300
+#     alt.value(theme.color("delta_neg")),   # antes c.RED_300
+# )
+# ¿donde recojo el cliente?
 
 
 # Example: "2024-01-09"
@@ -756,8 +820,7 @@ RESPONSE_CURVE_STEP_SIZE = 0.01
 
 
 # Font names.
-FONT_ROBOTO = 'Roboto'
-FONT_GOOGLE_SANS_DISPLAY = 'Google Sans Display'
+FONT_SPACE_GROTESK = 'Space Grotesk'
 
 # Default confidence level for the analysis.
 DEFAULT_CONFIDENCE_LEVEL = 0.9

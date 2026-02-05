@@ -38,6 +38,31 @@ __all__ = [
     'MediaEffects',
 ]
 
+# ----- Jerarquía fija de colores -----
+CHANNEL_COLOR_ORDER = [
+    "digital-afiliacion",
+    "digital-meta",
+    "digital-google",
+    "off-television",
+    "off-radio",
+    "off-outdoor",
+    "off-news",
+    "digital-billing",
+]
+
+CHANNEL_COLORS = [
+    c.RED_700,
+    c.RED_600,
+    c.RED_100,
+    c.GREY_700,
+    c.PURPLE_500,
+    c.PURPLE_700,
+    c.GREY_600,
+    c.BLACK_100,
+
+]
+# -------------------------------------
+
 
 # Disable max row limitations in Altair.
 alt.data_transformers.disable_max_rows()
@@ -788,7 +813,7 @@ class ReachAndFrequency:
         dx=5,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_SPACE_GROTESK,
         fontWeight='lighter',
     ).encode(
         text=alt.value(summary_text.OPTIMAL_FREQ_LABEL),
@@ -800,7 +825,7 @@ class ReachAndFrequency:
         dx=110,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_SPACE_GROTESK,
         fontWeight='lighter',
     ).encode(
         text=alt.Text(f'{c.OPTIMAL_FREQUENCY}:Q', format='.2f'),
@@ -994,6 +1019,7 @@ class MediaEffects:
     """
 
     total_num_channels = len(self._meridian.input_data.get_all_channels())
+
     if plot_separately:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
@@ -1001,7 +1027,7 @@ class MediaEffects:
       max_num_channels = min(total_num_channels, 10)
       if num_channels_displayed is None:
         if total_num_channels >= 7:
-          num_channels_displayed = 7  # default value to display
+          num_channels_displayed = 7
         else:
           num_channels_displayed = max_num_channels
 
@@ -1009,6 +1035,7 @@ class MediaEffects:
         num_channels_displayed = max_num_channels
       if num_channels_displayed < 1:
         num_channels_displayed = 1
+
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(
           top_channels=f'(top {num_channels_displayed})'
       )
@@ -1019,17 +1046,22 @@ class MediaEffects:
         selected_times=selected_times,
         by_reach=by_reach,
     )
+
     y_axis_label = (
         summary_text.INC_KPI_LABEL
         if self._use_kpi
         else summary_text.INC_OUTCOME_LABEL
     )
+
+    # ----------------------------
+    # Base chart with fixed color hierarchy
+    # ----------------------------
     base = (
         alt.Chart(response_curves_df, width=c.VEGALITE_FACET_DEFAULT_WIDTH)
         .transform_calculate(
             spend_level=(
-                'datum.spend_multiplier >= 1.0 ? "Above current spend" : "Below'
-                ' current spend"'
+                'datum.spend_multiplier >= 1.0 ? "Above current spend" : '
+                '"Below current spend"'
             )
         )
         .encode(
@@ -1049,10 +1081,18 @@ class MediaEffects:
                     **formatter.Y_AXIS_TITLE_CONFIG,
                 ),
             ),
-            color=f'{c.CHANNEL}:N',
+            color=alt.Color(
+                f'{c.CHANNEL}:N',
+                scale=alt.Scale(
+                    domain=CHANNEL_COLOR_ORDER,
+                    range=CHANNEL_COLORS,
+                    clamp=False
+                ),
+            ),
         )
     )
 
+    # Línea principal
     line = base.mark_line().encode(
         strokeDash=alt.StrokeDash(
             f'{c.SPEND_LEVEL}:N',
@@ -1061,6 +1101,7 @@ class MediaEffects:
         )
     )
 
+    # Punto de gasto histórico
     historic_spend_point = (
         base.mark_point(filled=True, size=c.POINT_SIZE, opacity=1)
         .encode(
@@ -1071,11 +1112,27 @@ class MediaEffects:
         )
         .transform_filter(alt.datum.spend_multiplier == 1.0)
     )
-    if plot_separately:
-      define_color = alt.Color(f'{c.CHANNEL}:N', legend=None)
-    else:
-      define_color = alt.Color(f'{c.CHANNEL}:N')
 
+    # Color para el área CI
+    if plot_separately:
+      define_color = alt.Color(
+          f'{c.CHANNEL}:N',
+          legend=None,
+          scale=alt.Scale(
+              domain=CHANNEL_COLOR_ORDER,
+              range=CHANNEL_COLORS,
+          ),
+      )
+    else:
+      define_color = alt.Color(
+          f'{c.CHANNEL}:N',
+          scale=alt.Scale(
+              domain=CHANNEL_COLOR_ORDER,
+              range=CHANNEL_COLORS,
+          ),
+      )
+
+    # Banda de intervalo creíble
     band = base.mark_area(opacity=0.5).encode(
         x=f'{c.SPEND}:Q',
         y=f'{c.CI_LO}:Q',
@@ -1083,18 +1140,22 @@ class MediaEffects:
         color=define_color,
     )
 
+    # Combinación de capas
     if include_ci:
       plot = alt.layer(line, historic_spend_point, band)
     else:
       plot = alt.layer(line, historic_spend_point)
+
+    # Facet por canal
     if plot_separately:
       plot = plot.facet(c.CHANNEL, columns=3).resolve_scale(
           x=c.INDEPENDENT, y=c.INDEPENDENT
       )
 
-    return plot.properties(
-        title=formatter.custom_title_params(title)
-    ).configure_axis(**formatter.TEXT_CONFIG)
+    return (
+        plot.properties(title=formatter.custom_title_params(title))
+        .configure_axis(**formatter.TEXT_CONFIG)
+    )
 
   def plot_adstock_decay(
       self,
@@ -1738,7 +1799,7 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_ROBOTO,
+                    labelFont=c.FONT_SPACE_GROTESK,
                     title=None,
                     orient='bottom',
                 ),
@@ -1850,7 +1911,7 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_ROBOTO,
+                    labelFont=c.FONT_SPACE_GROTESK,
                     title=None,
                     orient='bottom',
                 ),
@@ -1945,13 +2006,14 @@ class MediaSummary:
         x2='sum_outcome:Q',
         color=alt.condition(
             alt.datum.channel == c.BASELINE.upper(),
-            alt.value(c.YELLOW_600),
-            alt.value(c.BLUE_700),
+            alt.value(c.GREY_600),
+            alt.value(c.RED_300),
         ),
     )
     text = base.mark_text(
         align='left',
         dx=c.PADDING_10,
+        font=c.FONT_SPACE_GROTESK,
         fontSize=c.TEXT_FONT_SIZE,
         color=c.GREY_700,
     ).encode(
@@ -1983,7 +2045,7 @@ class MediaSummary:
     )
 
     domain = [c.BASELINE, c.ALL_CHANNELS]
-    colors = [c.YELLOW_600, c.BLUE_700]
+    colors = [c.GREY_600, c.RED_300]
     base = alt.Chart(outcome_df, width=c.VEGALITE_FACET_DEFAULT_WIDTH).encode(
         alt.Theta(f'{c.PCT_OF_CONTRIBUTION}:Q', stack=True),
         alt.Color(
@@ -1995,7 +2057,7 @@ class MediaSummary:
                 legendX=130,
                 legendY=320,
                 labelFontSize=c.AXIS_FONT_SIZE,
-                labelFont=c.FONT_ROBOTO,
+                labelFont=c.FONT_SPACE_GROTESK,
                 title=None,
             ),
         ),
@@ -2005,7 +2067,7 @@ class MediaSummary:
         radius=110,
         fill='white',
         size=c.TITLE_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_SPACE_GROTESK,
     ).encode(text=alt.Text(f'{c.PCT_OF_CONTRIBUTION}:Q', format='.0%'))
     return (
         alt.layer(pie, text, data=outcome_df)
@@ -2034,9 +2096,9 @@ class MediaSummary:
         '% Spend',
     ]
     title = summary_text.SPEND_OUTCOME_CHART_TITLE.format(outcome=outcome)
-    colors = [c.BLUE_400, c.BLUE_200]
+    colors = [c.RED_300, c.GREY_600]
     domain.append('Return on Investment')
-    colors.append(c.GREEN_700)
+    colors.append(c.PURPLE_500)
     spend_outcome = (
         alt.Chart()
         .mark_bar(cornerRadiusEnd=2, tooltip=True)
@@ -2071,7 +2133,7 @@ class MediaSummary:
     roi_marker = (
         alt.Chart()
         .mark_tick(
-            color=c.GREEN_700,
+            color=c.PURPLE_500,
             thickness=4,
             cornerRadius=c.CORNER_RADIUS,
             size=c.PADDING_20,
@@ -2087,6 +2149,7 @@ class MediaSummary:
         .mark_text(
             dy=-15,
             fontSize=c.AXIS_FONT_SIZE,
+            font=c.FONT_SPACE_GROTESK,
             color=c.GREY_900,
         )
         .encode(
@@ -2218,87 +2281,76 @@ class MediaSummary:
     )
 
   def _plot_roi_bubble_chart(
-      self,
-      metric: str,
-      metric_title: str,
-      title: str,
-      selected_channels: Sequence[str] | None = None,
-      disable_size: bool = False,
-      equal_axes: bool = False,
-  ) -> alt.Chart:
-    """Plots a bubble chart comparing ROI to another metric of choice.
+        self,
+        metric: str,
+        metric_title: str,
+        title: str,
+        selected_channels: Sequence[str] | None = None,
+        disable_size: bool = False,
+        equal_axes: bool = False,
+    ) -> alt.Chart:
 
-    This chart compares the ROI, spend, and another metric, either effectiveness
-    or mROI, for each channel where the spend is depicted by the pixel
-    area of the bubble and each bubble represents a channel.
+      if selected_channels:
+        channels = self.get_paid_summary_metrics().channel
+        if any(channel not in channels for channel in selected_channels):
+          raise ValueError(
+              '`selected_channels` should match the channel dimension names from '
+              'meridian.InputData'
+          )
 
-    Args:
-      metric: Name of the metric in the media summary metrics dataset to compare
-        against ROI.
-      metric_title: The label to show for this metric on the y-axis of the plot.
-      title: Title of the bubble chart.
-      selected_channels: List of channels to include. If None, all media
-        channels will be shown in the plot.
-      disable_size: If True, disables the differing size of the bubbles and
-        plots each channel uniformly. Defaults to False.
-      equal_axes: If True, plots the X and Y axes with equal scale. Defaults to
-        False.
+      plot_df = self._transform_media_metrics_for_roi_bubble_plot(
+          metric, selected_channels
+      )
 
-    Returns:
-      An Altair bubble plot showing the ROI, spend, and another metric.
-    """
-    if selected_channels:
-      channels = self.get_paid_summary_metrics().channel
-      if any(channel not in channels for channel in selected_channels):
-        raise ValueError(
-            '`selected_channels` should match the channel dimension names from '
-            'meridian.InputData'
-        )
+      axes_scale = alt.Scale()
+      if equal_axes:
+        max_roi = max(plot_df.roi.max(), plot_df[metric].max())
+        axes_scale = alt.Scale(domain=(0, max_roi), nice=True)
 
-    plot_df = self._transform_media_metrics_for_roi_bubble_plot(
-        metric, selected_channels
-    )
-
-    axes_scale = alt.Scale()
-    if equal_axes:
-      max_roi = max(plot_df.roi.max(), plot_df.mroi.max())
-      axes_scale = alt.Scale(domain=(0, max_roi), nice=True)
-
-    plot = (
-        alt.Chart(plot_df, width=c.VEGALITE_FACET_DEFAULT_WIDTH)
-        .mark_circle(tooltip=True, size=c.POINT_SIZE)
-        .encode(
-            x=alt.X(c.ROI, title='ROI', scale=axes_scale),
-            y=alt.Y(
-                metric,
-                title=metric_title,
-                scale=axes_scale,
-                axis=alt.Axis(**formatter.Y_AXIS_TITLE_CONFIG),
-            ),
-            color=alt.Color(
-                f'{c.CHANNEL}:N',
-                legend=alt.Legend(
-                    orient='bottom',
-                    title=None,
-                    columns=7,
-                    columnPadding=20,
-                    rowPadding=10,
-                ),
-            ),
-        )
-        .configure_axis(
-            gridDash=[3, 2],
-            titlePadding=c.PADDING_10,
-            **formatter.TEXT_CONFIG,
-        )
-    )
-    if not disable_size:
-      plot = plot.encode(
-          size=alt.Size(
-              c.SPEND, scale=alt.Scale(range=[100, 5000]), legend=None
+      plot = (
+          alt.Chart(plot_df, width=c.VEGALITE_FACET_DEFAULT_WIDTH)
+          .mark_circle(tooltip=True, size=c.POINT_SIZE)
+          .encode(
+              x=alt.X(c.ROI, title='ROI', scale=axes_scale),
+              y=alt.Y(
+                  metric,
+                  title=metric_title,
+                  scale=axes_scale,
+                  axis=alt.Axis(**formatter.Y_AXIS_TITLE_CONFIG),
+              ),
+              color=alt.Color(
+                  f'{c.CHANNEL}:N',
+                  scale=alt.Scale(
+                      domain=CHANNEL_COLOR_ORDER,
+                      range=CHANNEL_COLORS,
+                      clamp=False   # Si hay canales nuevos, no los fuerza → color default
+                  ),
+                  legend=alt.Legend(
+                      orient='bottom',
+                      title=None,
+                      columns=7,
+                      columnPadding=20,
+                      rowPadding=10,
+                  ),
+              ),
+          )
+          .configure_axis(
+              gridDash=[3, 2],
+              titlePadding=c.PADDING_10,
+              **formatter.TEXT_CONFIG,
           )
       )
-    return plot.properties(title=formatter.custom_title_params(title))
+
+      if not disable_size:
+        plot = plot.encode(
+            size=alt.Size(
+                c.SPEND,
+                scale=alt.Scale(range=[100, 5000]),
+                legend=None
+            )
+        )
+
+      return plot.properties(title=formatter.custom_title_params(title))
 
   def _plot_metric_bar_chart(
       self, metric: str, metric_label: str, title: str, include_ci: bool = True
@@ -2318,7 +2370,7 @@ class MediaSummary:
     base = (
         alt.Chart(df)
         .mark_bar(
-            size=c.BAR_SIZE, cornerRadiusEnd=c.CORNER_RADIUS, color=c.BLUE_600
+            size=c.BAR_SIZE, cornerRadiusEnd=c.CORNER_RADIUS, color=c.GREY_600
         )
         .encode(
             x=alt.X(
@@ -2339,6 +2391,7 @@ class MediaSummary:
         baseline='bottom',
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
+        font=c.FONT_SPACE_GROTESK,
         color=c.GREY_900,
     ).encode(text=alt.Text(f'{metric}:Q', format='.2f'))
 
@@ -2346,7 +2399,7 @@ class MediaSummary:
     if include_ci:
       error_bar = (
           alt.Chart(df)
-          .mark_errorbar(ticks=True, color=c.BLUE_300)
+          .mark_errorbar(ticks=True, color=c.RED_300)
           .encode(
               alt.X(f'{c.CHANNEL}:N'),
               alt.Y(f'{c.CI_HI}:Q', title=metric_label),
@@ -2356,7 +2409,7 @@ class MediaSummary:
       )
       mean_dot = (
           alt.Chart(df)
-          .mark_point(filled=True, color=c.BLUE_300, tooltip=True)
+          .mark_point(filled=True, color=c.RED_300, tooltip=True)
           .encode(alt.X(f'{c.CHANNEL}:N'), alt.Y(f'{metric}:Q'))
       )
       plot = base + error_bar + mean_dot + metric_text
