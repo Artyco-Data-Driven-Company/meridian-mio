@@ -107,6 +107,7 @@ class Summarizer:
         - digital_channels (list[str]): List of digital channel names to
             consider for the "Total Digital" row. If not provided, "Total Digital"
             row will not be included.
+        All comparison metrics tables and charts are saved as CSV files.
     """
     # Default to empty dict if no comparison metrics provided
     if comparison_metrics is None:
@@ -789,6 +790,9 @@ class Summarizer:
         row_values=kpi_df.values.tolist(),
     )
 
+    # Save Table as CSV
+    kpi_resume_table.to_csv('./comparison_metrics/kpi_comparison_table.csv')
+
     return kpi_resume_table
 
   def _create_spend_comparison_table_spec(
@@ -862,6 +866,9 @@ class Summarizer:
         column_headers=column_names,
         row_values=spend_df.values.tolist(),
     )
+
+    # Save Table as CSV
+    spend_resume_table.to_csv('./comparison_metrics/spend_comparison_table.csv')
 
     return spend_resume_table
 
@@ -940,6 +947,11 @@ class Summarizer:
         description=summary_text.CONTRIBUTION_COMPARISON_DESCRIPTION,
         column_headers=column_names,
         row_values=contribution_df.values.tolist(),
+    )
+
+    # Save Table as CSV
+    contribution_resume_table.to_csv(
+        './comparison_metrics/contribution_comparison_table.csv'
     )
 
     return contribution_resume_table
@@ -1047,6 +1059,11 @@ class Summarizer:
         row_values=kpi_contribution_comparison_df.values.tolist(),
     )
 
+    # Save Table as CSV
+    kpi_contribution_resume_table.to_csv(
+        './comparison_metrics/kpi_contribution_comparison_table.csv'
+    )
+
     return kpi_contribution_resume_table
 
   def _create_roi_comparison_table_spec(
@@ -1148,6 +1165,9 @@ class Summarizer:
         row_values=roi_comparison_df.values.tolist(),
     )
 
+    # Save Table as CSV
+    roi_comparison_table.to_csv('./comparison_metrics/roi_comparison_table.csv')
+
     return roi_comparison_table
 
   def _create_spend_comparison_pie_chart_spec(
@@ -1177,6 +1197,11 @@ class Summarizer:
         chart_json=media_summary.plot_spend_comparison_pie_chart(
             spend_df
         ).to_json(),
+    )
+
+    # Save pie chart data as CSV
+    spend_pie_chart_spec.to_csv(
+        './comparison_metrics/spend_comparison_pie_chart.csv'
     )
 
     return spend_pie_chart_spec
@@ -1214,6 +1239,11 @@ class Summarizer:
         chart_json=media_summary.plot_contribution_comparison_pie_chart(
             contribution_df
         ).to_json(),
+    )
+
+    # Save pie chart data as CSV
+    contribution_pie_chart_spec.to_csv(
+        './comparison_metrics/contribution_comparison_pie_chart.csv'
     )
 
     return contribution_pie_chart_spec

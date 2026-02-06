@@ -15,9 +15,12 @@
 """Functions for formatting analysis outputs."""
 
 from collections.abc import Sequence
+import csv
 import dataclasses
+import json
 import math
 import os
+from pathlib import Path
 
 import altair as alt
 import immutabledict
@@ -47,6 +50,25 @@ class ChartSpec:
   chart_json: str
   description: str | None = None
 
+  def to_csv(self, path: str | Path) -> None:
+    spec = json.loads(self.chart_json)
+    datasets = spec.get('datasets')
+
+    # Create directory if it doesn't exist and get the full file path
+    dir_path = Path(path).parent
+    file_path = Path(path).name
+    dir_path.mkdir(parents=True, exist_ok=True)
+    full_path = dir_path / file_path
+
+    # Assuming there's only one dataset, extract the headers and rows.
+    _, rows = next(iter(datasets.items()))
+    headers = rows[0].keys()
+
+    with open(full_path, 'w', newline='', encoding='utf-8') as f:
+      writer = csv.DictWriter(f, fieldnames=headers)
+      writer.writeheader()
+      writer.writerows(rows)
+
 
 @dataclasses.dataclass(frozen=True)
 class TableSpec:
@@ -55,6 +77,19 @@ class TableSpec:
   column_headers: Sequence[str]
   row_values: Sequence[Sequence[str]]
   description: str | None = None
+
+  def to_csv(self, path: str | Path) -> None:
+
+    # Create directory if it doesn't exist and get the full file path
+    dir_path = Path(path).parent
+    file_path = Path(path).name
+    dir_path.mkdir(parents=True, exist_ok=True)
+    full_path = dir_path / file_path
+
+    with open(full_path, 'w', newline='', encoding='utf-8') as f:
+      writer = csv.writer(f)
+      writer.writerow(self.column_headers)
+      writer.writerows(self.row_values)
 
 
 @dataclasses.dataclass(frozen=True)
