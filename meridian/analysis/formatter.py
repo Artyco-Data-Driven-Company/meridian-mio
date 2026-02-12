@@ -21,6 +21,7 @@ import json
 import math
 import os
 from pathlib import Path
+from typing import Any, TypeAlias
 
 import altair as alt
 import immutabledict
@@ -36,6 +37,9 @@ __all__ = [
     'create_template_env',
     'create_card_html',
 ]
+
+# Define type aliases for optional parameters
+SaveGcs: TypeAlias = dict[str, Any] | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -69,6 +73,7 @@ class ChartSpec:
       writer.writeheader()
       writer.writerows(rows)
 
+    print(f'✅ Chart "{self.id}" data saved to {full_path}')
 
 @dataclasses.dataclass(frozen=True)
 class TableSpec:
@@ -91,6 +96,7 @@ class TableSpec:
       writer.writerow(self.column_headers)
       writer.writerows(self.row_values)
 
+    print(f"✅ Table '{self.id}' data saved to {full_path}")
 
 @dataclasses.dataclass(frozen=True)
 class StatsSpec:

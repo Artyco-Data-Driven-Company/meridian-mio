@@ -16,7 +16,6 @@
 
 from collections.abc import Sequence
 from functools import partial
-from typing import Any
 import functools
 import os
 
@@ -27,6 +26,8 @@ from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.analysis import visualizer
 from meridian.data import time_coordinates as tc
+from meridian.analysis.helper import GCPClient
+from meridian.analysis.formatter import SaveGcs
 from meridian.model import model
 import pandas as pd
 import xarray as xr
@@ -72,6 +73,7 @@ class Summarizer:
     """Initialize the visualizer classes that are not time-dependent."""
     self._meridian = meridian
     self._use_kpi = analyzer.Analyzer(meridian)._use_kpi(use_kpi)
+    self.gcp_client = GCPClient()
 
   @functools.cached_property
   def _model_fit(self):
@@ -81,13 +83,187 @@ class Summarizer:
   def _model_diagnostics(self):
     return visualizer.ModelDiagnostics(self._meridian, use_kpi=self._use_kpi)
 
+  def output_comparison_metrics_summary(
+      self,
+      filename: str,
+      filepath: str,
+      start_date: tc.Date,
+      end_date: tc.Date,
+      start_date_cm: tc.Date,
+      end_date_cm: tc.Date,
+      digital_channels: list[str] | None = None,
+      save_in_gcs: SaveGcs = None,
+      save_as_csv: bool = False,
+      load_to_bq: bool = False,
+  ):
+    """
+    Generates and saves the HTML comparison metrics summary output.
+
+    Args:
+      filename: The filename for the generated HTML output.
+      filepath: The path to the directory where the file will be saved.
+      start_date: Optional start date selector, *inclusive*, in _yyyy-mm-dd_
+        format.
+      end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
+      start_date_cm (str): Start date selector for comparison metrics,
+        inclusive, in yyyy-mm-dd format.
+      end_date_cm (str): End date selector for comparison metrics,
+        inclusive, in yyyy-mm-dd format.
+      digital_channels (list[str]): List of digital channel names to
+        consider for the "Total Digital" row. If not provided, "Total Digital"
+        row will not be included.
+
+      save_in_gcs: Optional dictionary for GCS saving configuration.
+        If provided, it should contain the following keys:
+          - bucket_name (str): The name of the GCS bucket to upload to.
+          - subfolder (str, optional): Subfolder inside the "Reports" directory.
+              If not provided, the file will be saved directly under "Reports/".
+
+      save_as_csv: If True, saves the comparison metrics tables as CSV files.
+      load_to_bq: If True, loads the comparison metrics tables to BigQuery.
+    """
+    report = self._gen_comparison_metrics_summary(
+        start_date, end_date, start_date_cm, end_date_cm, digital_channels
+    )
+
+    # Create the output directory if it doesn't exist and save the report
+    os.makedirs(filepath, exist_ok=True)
+    full_path = os.path.join(filepath, filename)
+    with open(full_path, 'w') as f:
+      f.write(report)
+    print(f'✅ Report saved to {full_path}')
+
+    if save_in_gcs:
+      # Determine the folder path in GCS
+      subfolder = save_in_gcs.get('subfolder', '')
+      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
+
+      # Upload the file to GCS
+      self.gcp_client.upload_file_to_gcs(
+          bucket_name=save_in_gcs['bucket_name'],
+          prefix=prefix,
+          full_path=full_path,
+      )
+
+  def _gen_comparison_metrics_summary(
+      self,
+      start_date: tc.Date,
+      end_date: tc.Date,
+      start_date_cm: tc.Date,
+      end_date_cm: tc.Date,
+      digital_channels: list[str] | None = None,
+  ) -> str:
+    """Generate HTML comparison metrics summary output (as sanitized content str)."""
+    all_dates = self._meridian.input_data.time_coordinates.all_dates
+
+    if start_date is None or end_date is None:
+      raise ValueError(
+          'Both start_date and end_date must be provided for comparison metrics summary.'
+      )
+    start_date = tc.normalize_date(start_date)
+    end_date = tc.normalize_date(end_date)
+    if start_date not in all_dates:
+      raise ValueError(
+          f'start_date ({start_date}) must be in the time coordinates!'
+      )
+    if end_date not in all_dates:
+      raise ValueError(
+          f'end_date ({end_date}) must be in the time coordinates!'
+      )
+    if start_date > end_date:
+      raise ValueError(
+          f'start_date ({start_date}) must be before end_date ({end_date})!'
+      )
+
+    selected_times = self._meridian.expand_selected_time_dims(
+        start_date, end_date
+    )
+
+    if start_date_cm is None or end_date_cm is None:
+      raise ValueError(
+          'Both start_date_cm and end_date_cm must be provided for comparison metrics summary.'
+      )
+    start_date_cm = tc.normalize_date(start_date_cm)
+    end_date_cm = tc.normalize_date(end_date_cm)
+    if start_date_cm not in all_dates:
+      raise ValueError(
+          f'start_date_cm ({start_date_cm}) must be in the time coordinates!'
+      )
+    if end_date_cm not in all_dates:
+      raise ValueError(
+          f'end_date_cm ({end_date_cm}) must be in the time coordinates!'
+      )
+    if start_date_cm > end_date_cm:
+      raise ValueError(
+          f'start_date_cm ({start_date_cm}) must be before end_date_cm ({end_date_cm})!'
+      )
+
+    comparison_selected_times = self._meridian.expand_selected_time_dims(
+        start_date_cm, end_date_cm
+    )
+
+    template_env = formatter.create_template_env()
+    template_env.globals[c.START_DATE] = start_date.strftime(
+        f'%b {start_date.day}, %Y'
+    )
+
+    interval_days = self._meridian.input_data.time_coordinates.interval_days
+    end_date_adjusted = end_date + pd.Timedelta(days=interval_days)
+
+    template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
+        f'%b {end_date_adjusted.day}, %Y'
+    )
+
+    html_template = template_env.get_template('summary.html.jinja')
+    cards_htmls = self._create_cards_cm_htmls(
+        template_env,
+        selected_times=selected_times,
+        cm_selected_times=comparison_selected_times,
+        digital_channels=digital_channels,
+    )
+
+    return html_template.render(
+        title=summary_text.MODEL_RESULTS_TITLE, cards=cards_htmls
+    )
+
+  def _create_cards_cm_htmls(
+      self,
+      template_env: jinja2.Environment,
+      selected_times: Sequence[str] | None,
+      cm_selected_times: Sequence[str] | None,
+      digital_channels: list[str] | None = None,
+  ):
+    """Creates the HTML snippets for cards in the comparison metrics summary page."""
+    media_summary = visualizer.MediaSummary(
+        self._meridian, selected_times=selected_times, use_kpi=self._use_kpi
+    )
+
+    media_summary_cm = visualizer.MediaSummary(
+        self._meridian,
+        selected_times=cm_selected_times,
+        use_kpi=self._use_kpi,
+    )
+
+    cards = [
+        self._create_comparison_metrics_card_html(
+            template_env,
+            media_summary=media_summary,
+            media_summary_cm=media_summary_cm,
+            selected_times=selected_times,
+            selected_times_cm=cm_selected_times,
+            digital_channels=digital_channels,
+        ),
+    ]
+
+    return cards
+
   def output_model_results_summary(
       self,
       filename: str,
       filepath: str,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
-      comparison_metrics: dict[str, Any] | None = None,
+      save_in_gcs: SaveGcs = None,
   ):
     """Generates and saves the HTML results summary output.
 
@@ -97,35 +273,38 @@ class Summarizer:
       start_date: Optional start date selector, *inclusive*, in _yyyy-mm-dd_
         format.
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
-      comparison_metrics: Optional dictionary for comparison metrics reporting.
-        If provided, it should contain the following keys
-        - comparison_metrics (bool): Include comparison metrics section.
-        - start_date_cm (str): Start date selector for comparison metrics,
-            inclusive, in yyyy-mm-dd format.
-        - end_date_cm (str): End date selector for comparison metrics,
-            inclusive, in yyyy-mm-dd format.
-        - digital_channels (list[str]): List of digital channel names to
-            consider for the "Total Digital" row. If not provided, "Total Digital"
-            row will not be included.
-        All comparison metrics tables and charts are saved as CSV files.
-    """
-    # Default to empty dict if no comparison metrics provided
-    if comparison_metrics is None:
-      comparison_metrics = {}
 
+      save_in_gcs: Optional dictionary for GCS saving configuration.
+        If provided, it should contain the following keys:
+          - bucket_name (str): The name of the GCS bucket to upload to.
+          - subfolder (str, optional): Subfolder inside the "Reports" directory.
+              If not provided, the file will be saved directly under "Reports/".
+    """
+    report = self._gen_model_results_summary(start_date, end_date)
+
+    # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
-    with open(os.path.join(filepath, filename), 'w') as f:
-      f.write(
-          self._gen_model_results_summary(
-              start_date, end_date, **comparison_metrics
-          )
+    full_path = os.path.join(filepath, filename)
+    with open(full_path, 'w') as f:
+      f.write(report)
+    print(f'✅ Report saved to {full_path}')
+
+    if save_in_gcs:
+      # Determine the folder path in GCS
+      subfolder = save_in_gcs.get('subfolder', '')
+      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
+
+      # Upload the file to GCS
+      self.gcp_client.upload_file_to_gcs(
+          bucket_name=save_in_gcs['bucket_name'],
+          prefix=prefix,
+          full_path=full_path,
       )
 
   def _gen_model_results_summary(
       self,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
-      **kwargs,
   ) -> str:
     """Generate HTML results summary output (as sanitized content str)."""
     all_dates = self._meridian.input_data.time_coordinates.all_dates
@@ -155,45 +334,6 @@ class Summarizer:
         start_date, end_date
     )
 
-    # Process kwargs for Comparison Metrics
-    comparison_metrics = kwargs.get('comparison_metrics', False)
-    start_date_cm = kwargs.get('start_date_cm')
-    end_date_cm = kwargs.get('end_date_cm')
-    digital_channels = kwargs.get('digital_channels')
-    comparison_selected_times = None
-
-    if comparison_metrics:
-      if start_date_cm is None or end_date_cm is None:
-        raise ValueError(
-            'Both start_date_cm and end_date_cm must be provided when '
-            'comparison_metrics is True.'
-        )
-      start_date_cm = tc.normalize_date(start_date_cm)
-      end_date_cm = tc.normalize_date(end_date_cm)
-      if start_date_cm not in all_dates:
-        raise ValueError(
-            f'start_date_cm ({start_date_cm}) must be in the time coordinates!'
-        )
-      if end_date_cm not in all_dates:
-        raise ValueError(
-            f'end_date_cm ({end_date_cm}) must be in the time coordinates!'
-        )
-      if start_date_cm > end_date_cm:
-        raise ValueError(
-            f'start_date_cm ({start_date_cm}) must be before end_date_cm ({end_date_cm})!'
-        )
-
-      comparison_selected_times = self._meridian.expand_selected_time_dims(
-          start_date_cm, end_date_cm
-      )
-
-    # Create kwargs for Comparison Metrics
-    cm_kwargs = {
-        'comparison_metrics': comparison_metrics,
-        'comparison_selected_times': comparison_selected_times,
-        'digital_channels': digital_channels,
-    }
-
     template_env = formatter.create_template_env()
     template_env.globals[c.START_DATE] = start_date.strftime(
         f'%b {start_date.day}, %Y'
@@ -210,7 +350,6 @@ class Summarizer:
     cards_htmls = self._create_cards_htmls(
         template_env,
         selected_times=selected_times,
-        **cm_kwargs,
     )
 
     return html_template.render(
@@ -221,7 +360,6 @@ class Summarizer:
       self,
       template_env: jinja2.Environment,
       selected_times: Sequence[str] | None,
-      **kwargs,
   ) -> Sequence[str]:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
@@ -257,24 +395,6 @@ class Summarizer:
             reach_frequency=reach_frequency,
         ),
     ]
-
-    # Add Comparison Metrics card if requested
-    if kwargs.get('comparison_metrics'):
-      media_summary_cm = visualizer.MediaSummary(
-          self._meridian,
-          selected_times=kwargs.get('comparison_selected_times'),
-          use_kpi=self._use_kpi,
-      )
-      cards += [
-          self._create_comparison_metrics_card_html(
-              template_env,
-              media_summary=media_summary,
-              media_summary_cm=media_summary_cm,
-              selected_times=selected_times,
-              selected_times_cm=kwargs.get('comparison_selected_times'),
-              digital_channels=kwargs.get('digital_channels'),
-          ),
-      ]
 
     return cards
 
@@ -790,9 +910,6 @@ class Summarizer:
         row_values=kpi_df.values.tolist(),
     )
 
-    # Save Table as CSV
-    kpi_resume_table.to_csv('./comparison_metrics/kpi_comparison_table.csv')
-
     return kpi_resume_table
 
   def _create_spend_comparison_table_spec(
@@ -866,9 +983,6 @@ class Summarizer:
         column_headers=column_names,
         row_values=spend_df.values.tolist(),
     )
-
-    # Save Table as CSV
-    spend_resume_table.to_csv('./comparison_metrics/spend_comparison_table.csv')
 
     return spend_resume_table
 
@@ -947,11 +1061,6 @@ class Summarizer:
         description=summary_text.CONTRIBUTION_COMPARISON_DESCRIPTION,
         column_headers=column_names,
         row_values=contribution_df.values.tolist(),
-    )
-
-    # Save Table as CSV
-    contribution_resume_table.to_csv(
-        './comparison_metrics/contribution_comparison_table.csv'
     )
 
     return contribution_resume_table
@@ -1059,11 +1168,6 @@ class Summarizer:
         row_values=kpi_contribution_comparison_df.values.tolist(),
     )
 
-    # Save Table as CSV
-    kpi_contribution_resume_table.to_csv(
-        './comparison_metrics/kpi_contribution_comparison_table.csv'
-    )
-
     return kpi_contribution_resume_table
 
   def _create_roi_comparison_table_spec(
@@ -1165,9 +1269,6 @@ class Summarizer:
         row_values=roi_comparison_df.values.tolist(),
     )
 
-    # Save Table as CSV
-    roi_comparison_table.to_csv('./comparison_metrics/roi_comparison_table.csv')
-
     return roi_comparison_table
 
   def _create_spend_comparison_pie_chart_spec(
@@ -1197,11 +1298,6 @@ class Summarizer:
         chart_json=media_summary.plot_spend_comparison_pie_chart(
             spend_df
         ).to_json(),
-    )
-
-    # Save pie chart data as CSV
-    spend_pie_chart_spec.to_csv(
-        './comparison_metrics/spend_comparison_pie_chart.csv'
     )
 
     return spend_pie_chart_spec
@@ -1239,11 +1335,6 @@ class Summarizer:
         chart_json=media_summary.plot_contribution_comparison_pie_chart(
             contribution_df
         ).to_json(),
-    )
-
-    # Save pie chart data as CSV
-    contribution_pie_chart_spec.to_csv(
-        './comparison_metrics/contribution_comparison_pie_chart.csv'
     )
 
     return contribution_pie_chart_spec

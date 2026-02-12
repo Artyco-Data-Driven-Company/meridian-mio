@@ -20,6 +20,7 @@ import functools
 import math
 import os
 from typing import Any, TypeAlias
+from dataclasses import field
 import warnings
 
 import altair as alt
@@ -29,6 +30,8 @@ from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
+from meridian.analysis.helper import GCPClient
+from meridian.analysis.formatter import SaveGcs
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import numpy as np
@@ -503,6 +506,9 @@ class OptimizationResults:
   # on data different from the original `input_data`.
   new_data: analyzer_module.DataTensors | None = None
 
+  # GCP client for uploading reports to GCS.
+  gcp_client: GCPClient = field(default_factory=GCPClient)
+
   # TODO: Move this, and the plotting methods, to a summarizer.
   @functools.cached_property
   def template_env(self) -> jinja2.Environment:
@@ -585,11 +591,42 @@ class OptimizationResults:
       filename: str,
       filepath: str,
       currency: str = c.DEFAULT_CURRENCY,
+      save_in_gcs: SaveGcs = None,
   ):
-    """Generates and saves the HTML optimization summary output."""
+    """Generates and saves the HTML optimization summary output.
+
+    Args:
+    filename: The filename for the generated HTML output.
+    filepath: The path to the directory where the file will be saved.
+    currency: The currency symbol to use in the report. Defaults to `c.DEFAULT_CURRENCY`.
+
+    save_in_gcs: Optional dictionary for GCS saving configuration.
+      If provided, it should contain the following keys:
+        - bucket_name (str): The name of the GCS bucket to upload to.
+        - subfolder (str, optional): Subfolder inside the "Reports" directory.
+            If not provided, the file will be saved directly under "Reports/".
+    """
+
+    report = self._gen_optimization_summary(currency)
+
+    # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
-    with open(os.path.join(filepath, filename), 'w') as f:
-      f.write(self._gen_optimization_summary(currency))
+    full_path = os.path.join(filepath, filename)
+    with open(full_path, 'w') as f:
+      f.write(report)
+    print(f'✅ Report saved to {full_path}')
+
+    if save_in_gcs:
+      # Determine the folder path in GCS
+      subfolder = save_in_gcs.get('subfolder', '')
+      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
+
+      # Upload the file to GCS
+      self.gcp_client.upload_file_to_gcs(
+          bucket_name=save_in_gcs['bucket_name'],
+          prefix=prefix,
+          full_path=full_path,
+      )
 
   def plot_incremental_outcome_delta(self) -> alt.Chart:
     """Plots a waterfall chart showing the change in incremental outcome."""
