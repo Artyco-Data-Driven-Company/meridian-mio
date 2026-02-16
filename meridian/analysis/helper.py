@@ -1,6 +1,7 @@
 import os
-from datetime import datetime
-from google.cloud import storage
+from datetime import datetime, timezone
+from google.cloud import storage, bigquery
+import pandas as pd
 
 
 class GCPClient:
@@ -19,6 +20,7 @@ class GCPClient:
   def __init__(self):
     """Initializes GCP service clients."""
     self.storage_client = storage.Client()
+    self.bigquery_client = bigquery.Client()
 
   # -------------------------
   # Google Cloud Storage
@@ -40,7 +42,7 @@ class GCPClient:
     filename = os.path.basename(full_path)
 
     # Get the current date in YYYYMMDD format
-    utc_now = datetime.now().strftime("%Y%m%d")
+    utc_now = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     # Create the full GCS path with date-based organization
     bucket = self.storage_client.bucket(bucket_name)
@@ -52,3 +54,25 @@ class GCPClient:
     print(
         f"✅ File '{filename}' uploaded to 'gs://{bucket_name}/{key}' successfully."
     )
+
+  def load_df_to_bq(self, df: pd.DataFrame, table_id: str):
+    """
+    Loads a pandas DataFrame into a BigQuery table.
+
+    Args:
+        df (pd.DataFrame): DataFrame to load into BigQuery.
+        table_id (str): BigQuery table ID in the format
+                        'project.dataset.table'.
+    """
+    # Configure the load job
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND
+    )
+    # Load the DataFrame into BigQuery
+    load_job = self.bigquery_client.load_table_from_dataframe(
+        df, table_id, job_config=job_config
+    )
+    # Wait for the load job to complete
+    load_job.result()
+
+    print(f"✅ Loaded {len(df)} rows into {table_id}.")

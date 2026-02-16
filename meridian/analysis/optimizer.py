@@ -603,7 +603,8 @@ class OptimizationResults:
     save_in_gcs: Optional dictionary for GCS saving configuration.
       If provided, it should contain the following keys:
         - bucket_name (str): The name of the GCS bucket to upload to.
-        - subfolder (str, optional): Subfolder inside the "Reports" directory.
+        - product_or_service (str, optional): Name of the subfolder to create inside 
+        the "Reports" directory.
             If not provided, the file will be saved directly under "Reports/".
     """
 
@@ -618,7 +619,7 @@ class OptimizationResults:
 
     if save_in_gcs:
       # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('subfolder', '')
+      subfolder = save_in_gcs.get('product_or_service', '')
       prefix = 'Reports' + ('/' + subfolder if subfolder else '')
 
       # Upload the file to GCS

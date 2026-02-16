@@ -15,7 +15,6 @@
 """Functions for formatting analysis outputs."""
 
 from collections.abc import Sequence
-import csv
 import dataclasses
 import json
 import math
@@ -26,6 +25,7 @@ from typing import Any, TypeAlias
 import altair as alt
 import immutabledict
 import jinja2
+import pandas as pd
 from meridian import constants as c
 
 
@@ -40,6 +40,7 @@ __all__ = [
 
 # Define type aliases for optional parameters
 SaveGcs: TypeAlias = dict[str, Any] | None
+LoadToBq: TypeAlias = dict[str, Any] | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,9 +55,21 @@ class ChartSpec:
   chart_json: str
   description: str | None = None
 
-  def to_csv(self, path: str | Path) -> None:
+  def to_dataframe(self) -> pd.DataFrame:
+    """Converts the ChartSpec's chart_json to a pandas DataFrame."""
     spec = json.loads(self.chart_json)
     datasets = spec.get('datasets')
+
+    # Assuming there's only one dataset, extract the rows.
+    _, rows = next(iter(datasets.items()))
+    headers = rows[0].keys()
+    headers_fix = [header.lower().replace(' ', '_') for header in headers]
+    df = pd.DataFrame(rows, columns=headers_fix)
+    df["id"] = self.id
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+  def to_csv(self, path: str | Path):
 
     # Create directory if it doesn't exist and get the full file path
     dir_path = Path(path).parent
@@ -64,14 +77,9 @@ class ChartSpec:
     dir_path.mkdir(parents=True, exist_ok=True)
     full_path = dir_path / file_path
 
-    # Assuming there's only one dataset, extract the headers and rows.
-    _, rows = next(iter(datasets.items()))
-    headers = rows[0].keys()
-
-    with open(full_path, 'w', newline='', encoding='utf-8') as f:
-      writer = csv.DictWriter(f, fieldnames=headers)
-      writer.writeheader()
-      writer.writerows(rows)
+    # Get dataframe and save to CSV
+    df = self.to_dataframe()
+    df.to_csv(full_path, index=False, encoding='utf-8')
 
     print(f'✅ Chart "{self.id}" data saved to {full_path}')
 
@@ -83,7 +91,18 @@ class TableSpec:
   row_values: Sequence[Sequence[str]]
   description: str | None = None
 
-  def to_csv(self, path: str | Path) -> None:
+  def to_dataframe(self) -> pd.DataFrame:
+    """Converts the TableSpec to a pandas DataFrame."""
+    headers_fix = [
+        header.lower().replace(" ", "_") for header in list(self.column_headers)
+    ]
+    df = pd.DataFrame(self.row_values, columns=headers_fix)
+    df["id"] = self.id
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+  def to_csv(self, path: str | Path):
+    """Saves the table data to a CSV file at the specified path."""
 
     # Create directory if it doesn't exist and get the full file path
     dir_path = Path(path).parent
@@ -91,11 +110,9 @@ class TableSpec:
     dir_path.mkdir(parents=True, exist_ok=True)
     full_path = dir_path / file_path
 
-    with open(full_path, 'w', newline='', encoding='utf-8') as f:
-      writer = csv.writer(f)
-      writer.writerow(self.column_headers)
-      writer.writerows(self.row_values)
-
+    # Get dataframe and save to CSV
+    df = self.to_dataframe()
+    df.to_csv(full_path, index=False, encoding='utf-8')
     print(f"✅ Table '{self.id}' data saved to {full_path}")
 
 @dataclasses.dataclass(frozen=True)

@@ -15,6 +15,7 @@
 """Summarization module that creates a 2-page HTML report."""
 
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from functools import partial
 import functools
 import os
@@ -27,7 +28,7 @@ from meridian.analysis import summary_text
 from meridian.analysis import visualizer
 from meridian.data import time_coordinates as tc
 from meridian.analysis.helper import GCPClient
-from meridian.analysis.formatter import SaveGcs
+from meridian.analysis.formatter import SaveGcs, LoadToBq
 from meridian.model import model
 import pandas as pd
 import xarray as xr
@@ -93,8 +94,7 @@ class Summarizer:
       end_date_cm: tc.Date,
       digital_channels: list[str] | None = None,
       save_in_gcs: SaveGcs = None,
-      save_as_csv: bool = False,
-      load_to_bq: bool = False,
+      load_to_bq: LoadToBq = None,
   ):
     """
     Generates and saves the HTML comparison metrics summary output.
@@ -116,12 +116,22 @@ class Summarizer:
       save_in_gcs: Optional dictionary for GCS saving configuration.
         If provided, it should contain the following keys:
           - bucket_name (str): The name of the GCS bucket to upload to.
-          - subfolder (str, optional): Subfolder inside the "Reports" directory.
+          - product_or_service (str, optional): Name of the subfolder to create inside 
+          the "Reports" directory.
               If not provided, the file will be saved directly under "Reports/".
 
-      save_as_csv: If True, saves the comparison metrics tables as CSV files.
-      load_to_bq: If True, loads the comparison metrics tables to BigQuery.
+      load_to_bq: Optional dictionary for BigQuery loading configuration.
+        If provided, it should contain the following keys:
+          - table_id (str): The BigQuery table ID to load the data into.
+          - product_or_service (str): The product or service name to include in the 
+          BigQuery table.
+             If not provided, the product_or_service field in the BigQuery table 
+             will be set to "Unknown". 
     """
+    # Store the load_to_bq flag in an instance variable
+    self.load_to_bq = load_to_bq
+    self.utc_now = datetime.now(timezone.utc)
+
     report = self._gen_comparison_metrics_summary(
         start_date, end_date, start_date_cm, end_date_cm, digital_channels
     )
@@ -135,7 +145,7 @@ class Summarizer:
 
     if save_in_gcs:
       # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('subfolder', '')
+      subfolder = save_in_gcs.get('product_or_service', '')
       prefix = 'Reports' + ('/' + subfolder if subfolder else '')
 
       # Upload the file to GCS
@@ -277,7 +287,8 @@ class Summarizer:
       save_in_gcs: Optional dictionary for GCS saving configuration.
         If provided, it should contain the following keys:
           - bucket_name (str): The name of the GCS bucket to upload to.
-          - subfolder (str, optional): Subfolder inside the "Reports" directory.
+          - product_or_service (str, optional): Name of the subfolder to create inside 
+          the "Reports" directory.
               If not provided, the file will be saved directly under "Reports/".
     """
     report = self._gen_model_results_summary(start_date, end_date)
@@ -291,7 +302,7 @@ class Summarizer:
 
     if save_in_gcs:
       # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('subfolder', '')
+      subfolder = save_in_gcs.get('product_or_service', '')
       prefix = 'Reports' + ('/' + subfolder if subfolder else '')
 
       # Upload the file to GCS
@@ -910,6 +921,14 @@ class Summarizer:
         row_values=kpi_df.values.tolist(),
     )
 
+    if self.load_to_bq:
+        df = kpi_resume_table.to_dataframe()
+        df["product_or_service"] = self.load_to_bq.get(
+            "product_or_service", "Unknown"
+        )
+        df["updated_time"] = self.utc_now
+        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+
     return kpi_resume_table
 
   def _create_spend_comparison_table_spec(
@@ -983,6 +1002,14 @@ class Summarizer:
         column_headers=column_names,
         row_values=spend_df.values.tolist(),
     )
+
+    if self.load_to_bq:
+        df = spend_resume_table.to_dataframe()
+        df["product_or_service"] = self.load_to_bq.get(
+            "product_or_service", "Unknown"
+        )
+        df["updated_time"] = self.utc_now
+        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
 
     return spend_resume_table
 
@@ -1062,6 +1089,14 @@ class Summarizer:
         column_headers=column_names,
         row_values=contribution_df.values.tolist(),
     )
+
+    if self.load_to_bq:
+        df = contribution_resume_table.to_dataframe()
+        df["product_or_service"] = self.load_to_bq.get(
+            "product_or_service", "Unknown"
+        )
+        df["updated_time"] = self.utc_now
+        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
 
     return contribution_resume_table
 
@@ -1168,6 +1203,14 @@ class Summarizer:
         row_values=kpi_contribution_comparison_df.values.tolist(),
     )
 
+    if self.load_to_bq:
+        df = kpi_contribution_resume_table.to_dataframe()
+        df["product_or_service"] = self.load_to_bq.get(
+            "product_or_service", "Unknown"
+        )
+        df["updated_time"] = self.utc_now
+        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+
     return kpi_contribution_resume_table
 
   def _create_roi_comparison_table_spec(
@@ -1268,6 +1311,14 @@ class Summarizer:
         column_headers=column_names,
         row_values=roi_comparison_df.values.tolist(),
     )
+
+    if self.load_to_bq:
+        df = roi_comparison_table.to_dataframe()
+        df["product_or_service"] = self.load_to_bq.get(
+            "product_or_service", "Unknown"
+        )
+        df["updated_time"] = self.utc_now
+        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
 
     return roi_comparison_table
 
