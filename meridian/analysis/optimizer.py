@@ -1405,6 +1405,10 @@ class BudgetOptimizer:
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       batch_size: int = c.DEFAULT_BATCH_SIZE,
       optimization_grid: OptimizationGrid | None = None,
+      # Nuevo parámetro
+      use_pct_total_abs: bool = False,
+      pct_total_min: Sequence[float] | None = None,
+      pct_total_max: Sequence[float] | None = None,
   ) -> OptimizationResults:
     """Finds the optimal budget allocation that maximizes outcome.
 
@@ -1592,10 +1596,35 @@ class BudgetOptimizer:
         use_kpi=use_kpi,
         optimization_grid=optimization_grid,
     )
-    if optimization_grid is None or not use_grid_arg:
+
+    if use_pct_total_abs:
+      if pct_total_min is None or pct_total_max is None:
+        raise ValueError("Con use_pct_total_abs=True, proporciona pct_total_min y pct_total_max.")
+      channels = self._meridian.input_data.get_all_paid_channels()
+      if len(pct_total_min) != len(channels) or len(pct_total_max) != len(channels):
+        raise ValueError("pct_total_min/max deben tener longitud igual a número de canales.")
+      budget_total = budget or np.sum(self._analyzer.get_aggregated_spend().data)
+      lower_abs = np.array(pct_total_min) * budget_total
+      upper_abs = np.array(pct_total_max) * budget_total
+      # Pasamos límites absolutos; create_optimization_grid debe permitirlos
       optimization_grid = self.create_optimization_grid(
           new_data=new_data,
-          selected_geos=selected_geos,
+          start_date=start_date,
+          end_date=end_date,
+          budget=budget,
+          pct_of_spend=pct_of_spend,
+          spend_bound_lower=lower_abs,  # nuevo argumento
+          spend_bound_upper=upper_abs,  # nuevo argumento
+          gtol=gtol,
+          use_posterior=use_posterior,
+          use_kpi=use_kpi,
+          use_optimal_frequency=use_optimal_frequency,
+          batch_size=batch_size,
+      )
+    else:
+      # Flujo existente: usa spend_constraint_*
+      optimization_grid = self.create_optimization_grid(
+          new_data=new_data,
           start_date=start_date,
           end_date=end_date,
           budget=budget,
@@ -2003,6 +2032,9 @@ class BudgetOptimizer:
       use_optimal_frequency: bool = True,
       use_kpi: bool = False,
       batch_size: int = c.DEFAULT_BATCH_SIZE,
+      # Nuevos argumentos opcionales para límites absolutos
+      spend_bound_lower: np.ndarray | None = None,
+      spend_bound_upper: np.ndarray | None = None,
   ) -> OptimizationGrid:
     """Creates a OptimizationGrid for optimization.
 
@@ -2125,15 +2157,23 @@ class BudgetOptimizer:
     )
     spend = budget * valid_pct_of_spend
     round_factor = get_round_factor(budget, gtol)
-    optimization_lower_bound, optimization_upper_bound = (
-        get_optimization_bounds(
-            n_channels=n_paid_channels,
-            spend=spend,
-            round_factor=round_factor,
-            spend_constraint_lower=spend_constraint_lower,
-            spend_constraint_upper=spend_constraint_upper,
-        )
-    )
+
+    if spend_bound_lower is not None and spend_bound_upper is not None:
+      # Usamos límites absolutos directamente
+      optimization_lower_bound = spend_bound_lower
+      optimization_upper_bound = spend_bound_upper
+    else:
+      # Flujo actual: convertir spend_constraint_* a límites
+      (optimization_lower_bound, optimization_upper_bound) = (
+          get_optimization_bounds(
+              n_channels=n_paid_channels,
+              spend=spend,
+              round_factor=round_factor,
+              spend_constraint_lower=spend_constraint_lower,
+              spend_constraint_upper=spend_constraint_upper,
+          )
+      )
+
     if self._meridian.n_rf_channels > 0 and use_optimal_frequency:
       opt_freq_data = analyzer_module.DataTensors(
           rf_impressions=filled_data.reach * filled_data.frequency,
