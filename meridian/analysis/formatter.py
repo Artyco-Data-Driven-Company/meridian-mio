@@ -16,12 +16,16 @@
 
 from collections.abc import Sequence
 import dataclasses
+import json
 import math
 import os
+from pathlib import Path
+from typing import Any, TypeAlias
 
 import altair as alt
 import immutabledict
 import jinja2
+import pandas as pd
 from meridian import constants as c
 
 
@@ -33,6 +37,10 @@ __all__ = [
     'create_template_env',
     'create_card_html',
 ]
+
+# Define type aliases for optional parameters
+SaveGcs: TypeAlias = dict[str, Any] | None
+LoadToBq: TypeAlias = dict[str, Any] | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,6 +55,33 @@ class ChartSpec:
   chart_json: str
   description: str | None = None
 
+  def to_dataframe(self) -> pd.DataFrame:
+    """Converts the ChartSpec's chart_json to a pandas DataFrame."""
+    spec = json.loads(self.chart_json)
+    datasets = spec.get('datasets')
+
+    # Assuming there's only one dataset, extract the rows.
+    _, rows = next(iter(datasets.items()))
+    headers = rows[0].keys()
+    headers_fix = [header.lower().replace(' ', '_') for header in headers]
+    df = pd.DataFrame(rows, columns=headers_fix)
+    df["id"] = self.id
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+  def to_csv(self, path: str | Path):
+
+    # Create directory if it doesn't exist and get the full file path
+    dir_path = Path(path).parent
+    file_path = Path(path).name
+    dir_path.mkdir(parents=True, exist_ok=True)
+    full_path = dir_path / file_path
+
+    # Get dataframe and save to CSV
+    df = self.to_dataframe()
+    df.to_csv(full_path, index=False, encoding='utf-8')
+
+    print(f'✅ Chart "{self.id}" data saved to {full_path}')
 
 @dataclasses.dataclass(frozen=True)
 class TableSpec:
@@ -56,6 +91,29 @@ class TableSpec:
   row_values: Sequence[Sequence[str]]
   description: str | None = None
 
+  def to_dataframe(self) -> pd.DataFrame:
+    """Converts the TableSpec to a pandas DataFrame."""
+    headers_fix = [
+        header.lower().replace(" ", "_") for header in list(self.column_headers)
+    ]
+    df = pd.DataFrame(self.row_values, columns=headers_fix)
+    df["id"] = self.id
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+  def to_csv(self, path: str | Path):
+    """Saves the table data to a CSV file at the specified path."""
+
+    # Create directory if it doesn't exist and get the full file path
+    dir_path = Path(path).parent
+    file_path = Path(path).name
+    dir_path.mkdir(parents=True, exist_ok=True)
+    full_path = dir_path / file_path
+
+    # Get dataframe and save to CSV
+    df = self.to_dataframe()
+    df.to_csv(full_path, index=False, encoding='utf-8')
+    print(f"✅ Table '{self.id}' data saved to {full_path}")
 
 @dataclasses.dataclass(frozen=True)
 class StatsSpec:
@@ -126,6 +184,76 @@ def format_percent(percent: float) -> str:
     return '{:.0%}'.format(percent)
   else:
     return '{:.1g}%'.format(percent * 100)
+
+
+def format_var_number(n: float, decimals: int) -> str:
+  """
+  Formats a number with thousands separators and given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  fmt = f'{{:,.{decimals}f}}'
+  fmt_replaces = (
+      fmt.format(n).replace(',', 'X').replace('.', ',').replace('X', '.')
+  )
+  return sign + fmt_replaces
+
+
+def format_var_pp(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage point with given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  n_formatted = f'{n * 100:.{decimals}f} pp'
+  return f'{sign}{n_formatted}'
+
+
+def format_var_percent(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage with given decimal places.
+  Adds a '+' sign for positive numbers.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  sign = ''
+  if n > 0:
+    sign = '+'
+
+  n_formatted = f'{n * 100:.{decimals}f}%'
+  return f'{sign}{n_formatted}'
+
+
+def format_percent_cm(n: float, decimals: int) -> str:
+  """
+  Formats a number as a percentage with given decimal places.
+  """
+  if n is None or not math.isfinite(n):
+    return '-'
+
+  n_formatted = f'{n * 100:.{decimals}f}%'
+  return n_formatted
+
+
+def format_number_cm(n: float, decimals: int) -> str:
+  """
+  Formats a number with thousands separators and given decimal places.
+  """
+  fmt = f'{{:,.{decimals}f}}'
+  fmt_replaces = (
+      fmt.format(n).replace(',', 'X').replace('.', ',').replace('X', '.')
+  )
+  return fmt_replaces
 
 
 def compact_number(n: float, precision: int = 0, currency: str = '') -> str:

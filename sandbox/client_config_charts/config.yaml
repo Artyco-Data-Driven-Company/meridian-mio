@@ -1,0 +1,7 @@
+summarizer:
+  hide_abs_number_contribution_waterfall_chart: true
+  hide_roi_values_spend_vs_contribution_chart: true
+  max_channels_response_curves: 8
+
+optimizer:
+  max_channels_response_curves: 8

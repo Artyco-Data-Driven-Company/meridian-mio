@@ -25,6 +25,7 @@ from meridian.analysis import analyzer
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.model import model
+from meridian.analysis.client_config import ClientConfig
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -317,13 +318,17 @@ class ModelDiagnostics:
         {k: backend.einsum('ij...->ji...', v) for k, v in mcmc_states.items()}
     ).items():
       rhat_temp = np.asarray(v).flatten()
-      rhat = pd.concat([
-          rhat,
-          pd.DataFrame({
-              c.PARAMETER: np.repeat(k, len(rhat_temp)),
-              c.RHAT: rhat_temp,
-          }),
-      ])
+      rhat = pd.concat(
+          [
+              rhat,
+              pd.DataFrame(
+                  {
+                      c.PARAMETER: np.repeat(k, len(rhat_temp)),
+                      c.RHAT: rhat_temp,
+                  }
+              ),
+          ]
+      )
 
     # If the MCMC sampling fails, the r-hat value calculated will be very large.
     if (rhat[c.RHAT] > 1e10).any():
@@ -839,6 +844,7 @@ class MediaEffects:
       meridian: model.Meridian,
       by_reach: bool = True,
       use_kpi: bool = False,
+      config_path: str | None = None,
   ):
     """Initializes the Media Effects based on the model data and params.
 
@@ -849,11 +855,13 @@ class MediaEffects:
         curves by frequency given fixed reach if false.
       use_kpi: If `True`, calculate the incremental KPI. Otherwise, calculate
         the incremental revenue using the revenue per KPI (if available).
+      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = ClientConfig(config_path)
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -998,15 +1006,12 @@ class MediaEffects:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
     else:
-      max_num_channels = min(total_num_channels, 10)
-      if num_channels_displayed is None:
-        if total_num_channels >= 7:
-          num_channels_displayed = 7  # default value to display
-        else:
-          num_channels_displayed = max_num_channels
+      num_channels_displayed: int = self.client_config.get(
+          'summarizer.max_channels_response_curves', 7
+      )  # type: ignore
 
-      if num_channels_displayed > max_num_channels:
-        num_channels_displayed = max_num_channels
+      if num_channels_displayed > total_num_channels:
+        num_channels_displayed = total_num_channels
       if num_channels_displayed < 1:
         num_channels_displayed = 1
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(
@@ -1403,6 +1408,7 @@ class MediaSummary:
       marginal_roi_by_reach: bool = True,
       non_media_baseline_values: Sequence[float] | None = None,
       use_kpi: bool = False,
+      config_path: str | None = None,
   ):
     """Initializes the media summary metrics based on the model data and params.
 
@@ -1423,6 +1429,7 @@ class MediaSummary:
         the values defined with `ModelSpec.non_media_baseline_values` will be
         used.
       use_kpi: If `True`, use KPI instead of revenue.
+      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
@@ -1431,6 +1438,7 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = ClientConfig(config_path)
 
   @property
   def paid_summary_metrics(self):
@@ -1561,10 +1569,12 @@ class MediaSummary:
           .rename({c.MEAN: 'central_tendency'})
       )
     else:  # not include_non_paid_channels
-      percentage_metrics.extend([
-          c.PCT_OF_IMPRESSIONS,
-          c.PCT_OF_SPEND,
-      ])
+      percentage_metrics.extend(
+          [
+              c.PCT_OF_IMPRESSIONS,
+              c.PCT_OF_SPEND,
+          ]
+      )
       monetary_metrics = [c.CPM, c.CPIK] + [
           c.SPEND,
           c.INCREMENTAL_OUTCOME,
@@ -1683,17 +1693,21 @@ class MediaSummary:
 
     # Ensure proper ordering for the stacked area chart. Baseline should be at
     # the bottom. Separate the *stacking* order from the *legend* order.
-    stack_order = sorted([
-        channel
-        for channel in outcome_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ]) + [c.BASELINE]
+    stack_order = sorted(
+        [
+            channel
+            for channel in outcome_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    ) + [c.BASELINE]
 
-    legend_order = [c.BASELINE] + sorted([
-        channel
-        for channel in outcome_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ])
+    legend_order = [c.BASELINE] + sorted(
+        [
+            channel
+            for channel in outcome_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    )
 
     # Get the minimum incremental outcome for baseline across all time periods
     # as the lower bound for the stacked area chart.
@@ -1812,11 +1826,13 @@ class MediaSummary:
       tooltip_time_format = c.DATE_FORMAT
       tooltip_time_title = 'Week'
 
-    legend_order = [c.BASELINE] + sorted([
-        channel
-        for channel in plot_df[c.CHANNEL].unique()
-        if channel != c.BASELINE
-    ])
+    legend_order = [c.BASELINE] + sorted(
+        [
+            channel
+            for channel in plot_df[c.CHANNEL].unique()
+            if channel != c.BASELINE
+        ]
+    )
 
     plot = (
         alt.Chart(plot_df, width=c.VEGALITE_FACET_EXTRA_LARGE_WIDTH)
@@ -1897,6 +1913,14 @@ class MediaSummary:
         lambda x: formatter.format_number_text(x[pct], x[value]),
         axis=1,
     )
+
+    if self.client_config.get(
+        'summarizer.hide_abs_number_contribution_waterfall_chart', False
+    ):
+      outcome_df['outcome_text'] = outcome_df[pct].apply(
+          lambda x: f'{round(x * 100, 1)}%'
+      )
+
     outcome_df[c.CHANNEL] = outcome_df[c.CHANNEL].str.upper()
 
     num_channels = len(outcome_df[c.CHANNEL])
@@ -2037,6 +2061,7 @@ class MediaSummary:
     colors = [c.BLUE_400, c.BLUE_200]
     domain.append('Return on Investment')
     colors.append(c.GREEN_700)
+    elements = []
     spend_outcome = (
         alt.Chart()
         .mark_bar(cornerRadiusEnd=2, tooltip=True)
@@ -2068,6 +2093,7 @@ class MediaSummary:
             ),
         )
     )
+    elements.append(spend_outcome)
     roi_marker = (
         alt.Chart()
         .mark_tick(
@@ -2082,6 +2108,7 @@ class MediaSummary:
             y=alt.Y(f'{c.ROI_SCALED}:Q', title='%'),
         )
     )
+    elements.append(roi_marker)
     roi_text = (
         alt.Chart()
         .mark_text(
@@ -2094,7 +2121,13 @@ class MediaSummary:
             y=f'{c.ROI_SCALED}:Q',
         )
     )
-    layer = alt.layer(spend_outcome, roi_marker, roi_text, data=df)
+    elements.append(roi_text)
+    if self.client_config.get(
+        'summarizer.hide_roi_values_spend_vs_contribution_chart', False
+    ):
+      elements.pop()  # Remove the ROI text if the config is set to hide it.
+
+    layer = alt.layer(*elements, data=df)
 
     # To group the outcome and spend bar plot with the ROI markers, facet the
     # layered plot by channel. This creates separate plots per channel.
@@ -2532,12 +2565,14 @@ class MediaSummary:
           index=[0],
       )
     else:
-      return pd.DataFrame({
-          c.TIME: self._selected_times or summary_metrics.time.values,
-          c.CHANNEL: c.BASELINE,
-          c.INCREMENTAL_OUTCOME: baseline_outcome.values,
-          c.PCT_OF_CONTRIBUTION: baseline_pct.values,
-      })
+      return pd.DataFrame(
+          {
+              c.TIME: self._selected_times or summary_metrics.time.values,
+              c.CHANNEL: c.BASELINE,
+              c.INCREMENTAL_OUTCOME: baseline_outcome.values,
+              c.PCT_OF_CONTRIBUTION: baseline_pct.values,
+          }
+      )
 
   def _transform_contribution_spend_metrics(self) -> pd.DataFrame:
     """Transforms the media metrics for the spend vs contribution plot.
@@ -2657,4 +2692,134 @@ class MediaSummary:
         )
         .reset_index()
         .rename(columns={central_tendency: metric})
+    )
+
+  def get_kpi_sum(self) -> float:
+    """
+    Returns the sum of the KPI values over the selected time periods.
+    """
+    df_kpi = self._meridian.input_data.kpi.to_dataframe().reset_index()
+    kpi_sum = df_kpi.loc[df_kpi['time'].isin(self._selected_times), 'kpi'].sum()
+
+    return float(kpi_sum)
+
+  def get_summary_metrics_df(self) -> pd.DataFrame:
+    """
+    Returns a DataFrame that summarizes key summary metrics for each channel.
+    The DataFrame includes the following metrics:
+
+    - c.INCREMENTAL_OUTCOME
+    - c.PCT_OF_CONTRIBUTION
+    - c.SPEND
+    - c.ROI
+
+    The DataFrame includes only the posterior mean values for each metric.
+    """
+
+    summary_metrics = self.get_paid_summary_metrics(aggregate_times=True)
+
+    metrics = [c.INCREMENTAL_OUTCOME, c.PCT_OF_CONTRIBUTION, c.SPEND, c.ROI]
+
+    metrics_dataset = summary_metrics[metrics].sel(
+        distribution=c.POSTERIOR, metric=c.MEAN
+    )
+
+    metrics_dataset = (
+        metrics_dataset.to_dataframe()
+        .drop(columns=[c.METRIC, c.DISTRIBUTION])
+        .reset_index()
+    )
+
+    return metrics_dataset
+
+  def plot_spend_comparison_pie_chart(
+      self, spend_df: pd.DataFrame
+  ) -> alt.Chart:
+    """Plots a pie chart of the total spend from channels.
+
+    Returns:
+      An Altair plot showing the spend for all channels.
+    """
+    base = alt.Chart(spend_df).encode(
+        theta=alt.Theta(f'{c.SPEND}:Q', stack=True),
+        color=alt.Color(
+            f'{c.CHANNEL}:N',
+            legend=alt.Legend(title=None, rowPadding=c.PADDING_10, offset=-25),
+        ),
+    )
+
+    # Pie chart arcs
+    pie = base.mark_arc().encode(
+        tooltip=[
+            c.CHANNEL,
+            c.SPEND,
+            alt.Tooltip(
+                'pct_of_total_spend:Q', format='.1%', title='% of total'
+            ),
+        ]
+    )
+
+    # Text labels with percentages
+    text = base.mark_text(
+        radius=125,
+        fill='white',
+        size=14,
+        font=c.FONT_ROBOTO,
+    ).encode(text=alt.Text(f'{"pct_of_total_spend"}:Q', format='.0%'))
+
+    return (
+        alt.layer(pie, text, data=spend_df)
+        .configure_view(stroke=None)
+        .properties(
+            title=formatter.custom_title_params(
+                summary_text.SPEND_COMPARISON_CHART_TITLE
+            ),
+            width=c.VEGALITE_FACET_DEFAULT_WIDTH,
+        )
+    )
+
+  def plot_contribution_comparison_pie_chart(
+      self, contribution_df: pd.DataFrame
+  ) -> alt.Chart:
+    """Plots a pie chart of the total contribution from channels.
+
+    Returns:
+      An Altair plot showing the contribution for all channels.
+    """
+    base = alt.Chart(contribution_df).encode(
+        theta=alt.Theta(f'{c.PCT_OF_CONTRIBUTION}:Q', stack=True),
+        color=alt.Color(
+            f'{c.CHANNEL}:N',
+            legend=alt.Legend(title=None, rowPadding=c.PADDING_10, offset=-25),
+        ),
+    )
+
+    # Pie chart arcs
+    pie = base.mark_arc().encode(
+        tooltip=[
+            c.CHANNEL,
+            c.PCT_OF_CONTRIBUTION,
+            alt.Tooltip(
+                'pct_of_total_contribution:Q', format='.1%', title='% of total'
+            ),
+        ]
+    )
+
+    # Text labels with percentages
+    text = base.mark_text(
+        radius=125,
+        fill='white',
+        size=14,
+        font=c.FONT_ROBOTO,
+    ).encode(text=alt.Text(f'{"pct_of_total_contribution"}:Q', format='.0%'))
+
+    return (
+        alt.layer(pie, text, data=contribution_df)
+        .configure_view(stroke=None)
+        .properties(
+            title=formatter.custom_title_params(
+                summary_text.CONTRIBUTION_COMPARISON_CHART_TITLE
+            ),
+            width=c.VEGALITE_FACET_DEFAULT_WIDTH,
+        )
     )

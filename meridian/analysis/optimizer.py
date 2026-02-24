@@ -20,6 +20,7 @@ import functools
 import math
 import os
 from typing import Any, TypeAlias
+from dataclasses import field
 import warnings
 
 import altair as alt
@@ -29,6 +30,9 @@ from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
+from meridian.analysis.client_config import ClientConfig
+from meridian.analysis.helper import GCPClient
+from meridian.analysis.formatter import SaveGcs
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import numpy as np
@@ -232,7 +236,7 @@ class OptimizationGrid:
       spend_constraint_lower = spend_constraint_default
     if spend_constraint_upper is None:
       spend_constraint_upper = spend_constraint_default
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=len(self.channels),
             spend=spend,
@@ -250,7 +254,7 @@ class OptimizationGrid:
           ' It is only a problem when you use a much smaller budget, '
           ' for which the intended step size is smaller. '
       )
-    (spend_grid, incremental_outcome_grid) = self.trim_grids(
+    spend_grid, incremental_outcome_grid = self.trim_grids(
         spend_bound_lower=optimization_lower_bound,
         spend_bound_upper=optimization_upper_bound,
     )
@@ -503,6 +507,12 @@ class OptimizationResults:
   # on data different from the original `input_data`.
   new_data: analyzer_module.DataTensors | None = None
 
+  # GCP client for uploading reports to GCS.
+  gcp_client: GCPClient = field(default_factory=GCPClient)
+
+  # Client configuration for customizing optimization results and outputs.
+  client_config: ClientConfig = field(default_factory=ClientConfig)
+
   # TODO: Move this, and the plotting methods, to a summarizer.
   @functools.cached_property
   def template_env(self) -> jinja2.Environment:
@@ -585,11 +595,43 @@ class OptimizationResults:
       filename: str,
       filepath: str,
       currency: str = c.DEFAULT_CURRENCY,
+      save_in_gcs: SaveGcs = None,
   ):
-    """Generates and saves the HTML optimization summary output."""
+    """Generates and saves the HTML optimization summary output.
+
+    Args:
+    filename: The filename for the generated HTML output.
+    filepath: The path to the directory where the file will be saved.
+    currency: The currency symbol to use in the report. Defaults to `c.DEFAULT_CURRENCY`.
+
+    save_in_gcs: Optional dictionary for GCS saving configuration.
+      If provided, it should contain the following keys:
+        - bucket_name (str): The name of the GCS bucket to upload to.
+        - product_or_service (str, optional): Name of the subfolder to create inside
+        the "Reports" directory.
+            If not provided, the file will be saved directly under "Reports/".
+    """
+
+    report = self._gen_optimization_summary(currency)
+
+    # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
-    with open(os.path.join(filepath, filename), 'w') as f:
-      f.write(self._gen_optimization_summary(currency))
+    full_path = os.path.join(filepath, filename)
+    with open(full_path, 'w') as f:
+      f.write(report)
+    print(f'✅ Report saved to {full_path}')
+
+    if save_in_gcs:
+      # Determine the folder path in GCS
+      subfolder = save_in_gcs.get('product_or_service', '')
+      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
+
+      # Upload the file to GCS
+      self.gcp_client.upload_file_to_gcs(
+          bucket_name=save_in_gcs['bucket_name'],
+          prefix=prefix,
+          full_path=full_path,
+      )
 
   def plot_incremental_outcome_delta(self) -> alt.Chart:
     """Plots a waterfall chart showing the change in incremental outcome."""
@@ -976,11 +1018,13 @@ class OptimizationResults:
         if len(ubounds) == 1
         else ubounds * self.spend_ratio
     )
-    spend_constraints_df = pd.DataFrame({
-        c.CHANNEL: channels,
-        c.LOWER_BOUND: lower_bound,
-        c.UPPER_BOUND: upper_bound,
-    })
+    spend_constraints_df = pd.DataFrame(
+        {
+            c.CHANNEL: channels,
+            c.LOWER_BOUND: lower_bound,
+            c.UPPER_BOUND: upper_bound,
+        }
+    )
 
     response_curves_ds = self.get_response_curves()
     response_curves_df = (
@@ -1040,10 +1084,12 @@ class OptimizationResults:
     if c.METRIC in delta.dims:
       delta = delta.sel(metric=c.MEAN, drop=True)
     df = delta.to_dataframe().reset_index()
-    return pd.concat([
-        df[df[metric] < 0].sort_values([metric]),
-        df[df[metric] >= 0].sort_values([metric], ascending=False),
-    ]).reset_index(drop=True)
+    return pd.concat(
+        [
+            df[df[metric] < 0].sort_values([metric]),
+            df[df[metric] >= 0].sort_values([metric], ascending=False),
+        ]
+    ).reset_index(drop=True)
 
   def _transform_outcome_delta_data(self) -> pd.DataFrame:
     """Calculates the incremental outcome delta after optimization."""
@@ -1294,7 +1340,12 @@ class OptimizationResults:
         id=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_ID,
         title=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_TITLE,
     )
-    n_channels = min(len(self.optimized_data.channel), 6)
+    n_channels = self.client_config.get(
+        'optimizer.max_channels_response_curves', 6
+    )
+    if n_channels > len(self.optimized_data.channel):
+      n_channels = len(self.optimized_data.channel)
+
     response_curves = formatter.ChartSpec(
         id=summary_text.OPTIMIZED_RESPONSE_CURVES_CHART_ID,
         chart_json=self.plot_response_curves(
@@ -1319,9 +1370,10 @@ class BudgetOptimizer:
   results can be viewed as plots and as an HTML summary output page.
   """
 
-  def __init__(self, meridian: model.Meridian):
+  def __init__(self, meridian: model.Meridian, config_path: str | None = None):
     self._meridian = meridian
     self._analyzer = analyzer_module.Analyzer(self._meridian)
+    self.client_config = ClientConfig(config_path)
 
   def _validate_model_fit(self, use_posterior: bool):
     """Validates that the model is fit."""
@@ -1658,6 +1710,7 @@ class BudgetOptimizer:
         _nonoptimized_data_with_optimal_freq=nonoptimized_data_with_optimal_freq,
         _optimized_data=optimized_data,
         _optimization_grid=optimization_grid,
+        client_config=self.client_config,
     )
 
   def create_optimization_tensors(
@@ -1900,7 +1953,7 @@ class BudgetOptimizer:
         pct_of_spend=pct_of_spend,
     )
     spend = budget * valid_pct_of_spend
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=n_channels,
             spend=spend,
@@ -2072,7 +2125,7 @@ class BudgetOptimizer:
     )
     spend = budget * valid_pct_of_spend
     round_factor = get_round_factor(budget, gtol)
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=n_paid_channels,
             spend=spend,
@@ -2101,7 +2154,7 @@ class BudgetOptimizer:
       optimal_frequency = None
 
     step_size = 10 ** (-round_factor)
-    (spend_grid, incremental_outcome_grid) = self._create_grids(
+    spend_grid, incremental_outcome_grid = self._create_grids(
         spend=hist_spend,
         spend_bound_lower=optimization_lower_bound,
         spend_bound_upper=optimization_upper_bound,
@@ -2282,13 +2335,11 @@ class BudgetOptimizer:
     )
     spend_tensor = backend.to_tensor(spend, dtype=backend.float32)
     hist_spend = backend.to_tensor(hist_spend, dtype=backend.float32)
-    (new_media, new_reach, new_frequency) = (
-        self._get_incremental_outcome_tensors(
-            hist_spend,
-            spend_tensor,
-            new_data=filled_data.filter_fields(c.PAID_CHANNELS),
-            optimal_frequency=optimal_frequency,
-        )
+    new_media, new_reach, new_frequency = self._get_incremental_outcome_tensors(
+        hist_spend,
+        spend_tensor,
+        new_data=filled_data.filter_fields(c.PAID_CHANNELS),
+        optimal_frequency=optimal_frequency,
     )
     budget = np.sum(spend_tensor)
     inc_outcome_data = analyzer_module.DataTensors(
@@ -2918,7 +2969,7 @@ def _get_spend_bounds(
     spend_bounds: tuple of np.ndarray of size `n_total_channels` containing
       the untreated lower and upper bound spend for each media and RF channel.
   """
-  (spend_const_lower, spend_const_upper) = _validate_spend_constraints(
+  spend_const_lower, spend_const_upper = _validate_spend_constraints(
       n_channels,
       spend_constraint_lower,
       spend_constraint_upper,

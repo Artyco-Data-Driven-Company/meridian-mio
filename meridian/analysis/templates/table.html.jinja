@@ -20,16 +20,22 @@ limitations under the License.
     <table>
       <tr class="chart-table-column-headers">
       {% for column_header in column_headers %}
-        <th>{{ column_header }}</th>
+        <th style="background-color: #eee;">{{ column_header }}</th>
       {% endfor %}
       </tr>
 
       {% for row in row_values %}
-      <tr class="chart-table-row-values">
+        <tr class="chart-table-row-values"
+          {% set row_text = row|join(' ') %}
+            {% if 'Digital' in row_text %}style="background-color: #e8f5e8;"
+            {% elif 'Baseline' in row_text %}style="background-color: #e3f2fd;"
+            {% elif 'Total' in row_text %}style="background-color: #eee;"
+            {% elif 'MediaAtr' in row_text %}style="background-color: #eee;"
+            {% endif %}>
         {% for value in row %}
           <td>{{ value }}</td>
         {% endfor %}
-      </tr>
+        </tr>
       {% endfor %}
     </table>
   </div>
