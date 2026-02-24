@@ -37,6 +37,7 @@ dependencies = [
   "pandas >= 2.2.2, < 3",
   "patsy >= 0.5.3, < 1",
   "pyarrow==23.0.1",
+  "PyYAML==6.0.3",
   "scipy >= 1.13.1, < 2",
   "statsmodels >= 0.12.2",
   "tensorflow >= 2.18, < 2.19",

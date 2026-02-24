@@ -25,6 +25,7 @@ from meridian.analysis import analyzer
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.model import model
+from meridian.analysis.client_config import ClientConfig
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -843,6 +844,7 @@ class MediaEffects:
       meridian: model.Meridian,
       by_reach: bool = True,
       use_kpi: bool = False,
+      config_path: str | None = None,
   ):
     """Initializes the Media Effects based on the model data and params.
 
@@ -853,11 +855,13 @@ class MediaEffects:
         curves by frequency given fixed reach if false.
       use_kpi: If `True`, calculate the incremental KPI. Otherwise, calculate
         the incremental revenue using the revenue per KPI (if available).
+      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = ClientConfig(config_path)
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -1002,15 +1006,12 @@ class MediaEffects:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
     else:
-      max_num_channels = min(total_num_channels, 10)
-      if num_channels_displayed is None:
-        if total_num_channels >= 7:
-          num_channels_displayed = 7  # default value to display
-        else:
-          num_channels_displayed = max_num_channels
+      num_channels_displayed: int = self.client_config.get(
+          'summarizer.max_channels_response_curves', 7
+      )  # type: ignore
 
-      if num_channels_displayed > max_num_channels:
-        num_channels_displayed = max_num_channels
+      if num_channels_displayed > total_num_channels:
+        num_channels_displayed = total_num_channels
       if num_channels_displayed < 1:
         num_channels_displayed = 1
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(
@@ -1407,6 +1408,7 @@ class MediaSummary:
       marginal_roi_by_reach: bool = True,
       non_media_baseline_values: Sequence[float] | None = None,
       use_kpi: bool = False,
+      config_path: str | None = None,
   ):
     """Initializes the media summary metrics based on the model data and params.
 
@@ -1427,6 +1429,7 @@ class MediaSummary:
         the values defined with `ModelSpec.non_media_baseline_values` will be
         used.
       use_kpi: If `True`, use KPI instead of revenue.
+      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
@@ -1435,6 +1438,7 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = ClientConfig(config_path)
 
   @property
   def paid_summary_metrics(self):
@@ -1909,6 +1913,14 @@ class MediaSummary:
         lambda x: formatter.format_number_text(x[pct], x[value]),
         axis=1,
     )
+
+    if self.client_config.get(
+        'summarizer.hide_abs_number_contribution_waterfall_chart', False
+    ):
+      outcome_df['outcome_text'] = outcome_df[pct].apply(
+          lambda x: f'{round(x * 100, 1)}%'
+      )
+
     outcome_df[c.CHANNEL] = outcome_df[c.CHANNEL].str.upper()
 
     num_channels = len(outcome_df[c.CHANNEL])
@@ -2049,6 +2061,7 @@ class MediaSummary:
     colors = [c.BLUE_400, c.BLUE_200]
     domain.append('Return on Investment')
     colors.append(c.GREEN_700)
+    elements = []
     spend_outcome = (
         alt.Chart()
         .mark_bar(cornerRadiusEnd=2, tooltip=True)
@@ -2080,6 +2093,7 @@ class MediaSummary:
             ),
         )
     )
+    elements.append(spend_outcome)
     roi_marker = (
         alt.Chart()
         .mark_tick(
@@ -2094,6 +2108,7 @@ class MediaSummary:
             y=alt.Y(f'{c.ROI_SCALED}:Q', title='%'),
         )
     )
+    elements.append(roi_marker)
     roi_text = (
         alt.Chart()
         .mark_text(
@@ -2106,7 +2121,13 @@ class MediaSummary:
             y=f'{c.ROI_SCALED}:Q',
         )
     )
-    layer = alt.layer(spend_outcome, roi_marker, roi_text, data=df)
+    elements.append(roi_text)
+    if self.client_config.get(
+        'summarizer.hide_roi_values_spend_vs_contribution_chart', False
+    ):
+      elements.pop()  # Remove the ROI text if the config is set to hide it.
+
+    layer = alt.layer(*elements, data=df)
 
     # To group the outcome and spend bar plot with the ROI markers, facet the
     # layered plot by channel. This creates separate plots per channel.

@@ -70,11 +70,17 @@ COMPARISON_METRICS_CARD_SPEC = formatter.CardSpec(
 class Summarizer:
   """Generates HTML summary visualizations from the model fitting."""
 
-  def __init__(self, meridian: model.Meridian, use_kpi: bool = False):
+  def __init__(
+      self,
+      meridian: model.Meridian,
+      use_kpi: bool = False,
+      config_path: str | None = None,
+  ):
     """Initialize the visualizer classes that are not time-dependent."""
     self._meridian = meridian
     self._use_kpi = analyzer.Analyzer(meridian)._use_kpi(use_kpi)
     self.gcp_client = GCPClient()
+    self.config_path = config_path
 
   @functools.cached_property
   def _model_fit(self):
@@ -116,17 +122,17 @@ class Summarizer:
       save_in_gcs: Optional dictionary for GCS saving configuration.
         If provided, it should contain the following keys:
           - bucket_name (str): The name of the GCS bucket to upload to.
-          - product_or_service (str, optional): Name of the subfolder to create inside 
+          - product_or_service (str, optional): Name of the subfolder to create inside
           the "Reports" directory.
               If not provided, the file will be saved directly under "Reports/".
 
       load_to_bq: Optional dictionary for BigQuery loading configuration.
         If provided, it should contain the following keys:
           - table_id (str): The BigQuery table ID to load the data into.
-          - product_or_service (str): The product or service name to include in the 
+          - product_or_service (str): The product or service name to include in the
           BigQuery table.
-             If not provided, the product_or_service field in the BigQuery table 
-             will be set to "Unknown". 
+             If not provided, the product_or_service field in the BigQuery table
+             will be set to "Unknown".
     """
     # Store the load_to_bq flag in an instance variable
     self.load_to_bq = load_to_bq
@@ -245,15 +251,18 @@ class Summarizer:
   ):
     """Creates the HTML snippets for cards in the comparison metrics summary page."""
     media_summary = visualizer.MediaSummary(
-        self._meridian, selected_times=selected_times, use_kpi=self._use_kpi
+        self._meridian,
+        selected_times=selected_times,
+        use_kpi=self._use_kpi,
+        config_path=self.config_path,
     )
 
     media_summary_cm = visualizer.MediaSummary(
         self._meridian,
         selected_times=cm_selected_times,
         use_kpi=self._use_kpi,
+        config_path=self.config_path,
     )
-
     cards = [
         self._create_comparison_metrics_card_html(
             template_env,
@@ -287,7 +296,7 @@ class Summarizer:
       save_in_gcs: Optional dictionary for GCS saving configuration.
         If provided, it should contain the following keys:
           - bucket_name (str): The name of the GCS bucket to upload to.
-          - product_or_service (str, optional): Name of the subfolder to create inside 
+          - product_or_service (str, optional): Name of the subfolder to create inside
           the "Reports" directory.
               If not provided, the file will be saved directly under "Reports/".
     """
@@ -374,10 +383,13 @@ class Summarizer:
   ) -> Sequence[str]:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
-        self._meridian, selected_times=selected_times, use_kpi=self._use_kpi
+        self._meridian,
+        selected_times=selected_times,
+        use_kpi=self._use_kpi,
+        config_path=self.config_path,
     )
     media_effects = visualizer.MediaEffects(
-        self._meridian, use_kpi=self._use_kpi
+        self._meridian, use_kpi=self._use_kpi, config_path=self.config_path
     )
     reach_frequency = (
         visualizer.ReachAndFrequency(
@@ -474,12 +486,14 @@ class Summarizer:
 
       row_values = [training_row, testing_row, all_data_row]
     else:  # No holdout_id present, so metrics are taken from 'All Data'.
-      row_values = [[
-          summary_text.ALL_DATA_LABEL,
-          '{:.2f}'.format(national_table[c.R_SQUARED].item()),
-          '{:.0%}'.format(national_table[c.MAPE].item()),
-          '{:.0%}'.format(national_table[c.WMAPE].item()),
-      ]]
+      row_values = [
+          [
+              summary_text.ALL_DATA_LABEL,
+              '{:.2f}'.format(national_table[c.R_SQUARED].item()),
+              '{:.0%}'.format(national_table[c.MAPE].item()),
+              '{:.0%}'.format(national_table[c.WMAPE].item()),
+          ]
+      ]
 
     return formatter.TableSpec(
         id=summary_text.PREDICTIVE_ACCURACY_TABLE_ID,
@@ -699,13 +713,15 @@ class Summarizer:
       channel_name = optimal_rf[c.RF_CHANNEL].values.item()
       opt_freq = '{:.1f}'.format(optimal_rf.values.item())
       description = summary_text.OPTIMAL_FREQ_CHART_DESCRIPTION
-      insights = ' '.join([
-          insights,
-          summary_text.OPTIMAL_FREQUENCY_INSIGHTS_FORMAT.format(
-              rf_channel=channel_name,
-              opt_freq=opt_freq,
-          ),
-      ])
+      insights = ' '.join(
+          [
+              insights,
+              summary_text.OPTIMAL_FREQUENCY_INSIGHTS_FORMAT.format(
+                  rf_channel=channel_name,
+                  opt_freq=opt_freq,
+              ),
+          ]
+      )
 
       charts.append(
           formatter.ChartSpec(
@@ -922,12 +938,12 @@ class Summarizer:
     )
 
     if self.load_to_bq:
-        df = kpi_resume_table.to_dataframe()
-        df["product_or_service"] = self.load_to_bq.get(
-            "product_or_service", "Unknown"
-        )
-        df["updated_time"] = self.utc_now
-        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+      df = kpi_resume_table.to_dataframe()
+      df['product_or_service'] = self.load_to_bq.get(
+          'product_or_service', 'Unknown'
+      )
+      df['updated_time'] = self.utc_now
+      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
 
     return kpi_resume_table
 
@@ -1004,12 +1020,12 @@ class Summarizer:
     )
 
     if self.load_to_bq:
-        df = spend_resume_table.to_dataframe()
-        df["product_or_service"] = self.load_to_bq.get(
-            "product_or_service", "Unknown"
-        )
-        df["updated_time"] = self.utc_now
-        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+      df = spend_resume_table.to_dataframe()
+      df['product_or_service'] = self.load_to_bq.get(
+          'product_or_service', 'Unknown'
+      )
+      df['updated_time'] = self.utc_now
+      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
 
     return spend_resume_table
 
@@ -1091,12 +1107,12 @@ class Summarizer:
     )
 
     if self.load_to_bq:
-        df = contribution_resume_table.to_dataframe()
-        df["product_or_service"] = self.load_to_bq.get(
-            "product_or_service", "Unknown"
-        )
-        df["updated_time"] = self.utc_now
-        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+      df = contribution_resume_table.to_dataframe()
+      df['product_or_service'] = self.load_to_bq.get(
+          'product_or_service', 'Unknown'
+      )
+      df['updated_time'] = self.utc_now
+      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
 
     return contribution_resume_table
 
@@ -1204,12 +1220,12 @@ class Summarizer:
     )
 
     if self.load_to_bq:
-        df = kpi_contribution_resume_table.to_dataframe()
-        df["product_or_service"] = self.load_to_bq.get(
-            "product_or_service", "Unknown"
-        )
-        df["updated_time"] = self.utc_now
-        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+      df = kpi_contribution_resume_table.to_dataframe()
+      df['product_or_service'] = self.load_to_bq.get(
+          'product_or_service', 'Unknown'
+      )
+      df['updated_time'] = self.utc_now
+      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
 
     return kpi_contribution_resume_table
 
@@ -1313,12 +1329,12 @@ class Summarizer:
     )
 
     if self.load_to_bq:
-        df = roi_comparison_table.to_dataframe()
-        df["product_or_service"] = self.load_to_bq.get(
-            "product_or_service", "Unknown"
-        )
-        df["updated_time"] = self.utc_now
-        self.gcp_client.load_df_to_bq(df, self.load_to_bq["table_id"])
+      df = roi_comparison_table.to_dataframe()
+      df['product_or_service'] = self.load_to_bq.get(
+          'product_or_service', 'Unknown'
+      )
+      df['updated_time'] = self.utc_now
+      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
 
     return roi_comparison_table
 
