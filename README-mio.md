@@ -58,7 +58,7 @@ Este modo está pensado para desarrollo activo, pruebas locales y contribuciones
 - Crear un entorno virtual y activarlo:
     ```sh
     python3 -m venv .venv_meridian
-    source .venv_meridian/bin/activate
+    source .venv_meridian/bin/activate (linux) o source .venv_meridian/Scripts/activate (windows)
     ```
 - Actualizar `pip` e instalar el paquete en modo editable con dependencias de desarrollo:
     ```sh

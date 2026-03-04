@@ -36,3 +36,6 @@ meridian/analysis/templates/style.css
 # .pkl files
 sandbox/*/*.pkl
 examples/*/*.pkl
+
+# .pkl files
+sandbox/*/*.json

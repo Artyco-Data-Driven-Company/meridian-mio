@@ -178,6 +178,9 @@ class OptimizationGrid:
       pct_of_spend: Sequence[float] | None = None,
       spend_constraint_lower: _SpendConstraint | None = None,
       spend_constraint_upper: _SpendConstraint | None = None,
+      use_pct_total_abs: bool = False,
+      lower_abs: Sequence[float] | None = None,
+      upper_abs: Sequence[float] | None = None
   ) -> xr.Dataset:
     """Finds the optimal budget allocation that maximizes outcome.
 
@@ -227,24 +230,31 @@ class OptimizationGrid:
         pct_of_spend=pct_of_spend,
     )
     spend = budget * valid_pct_of_spend
-    spend_constraint_default = (
-        c.SPEND_CONSTRAINT_DEFAULT_FIXED_BUDGET
-        if isinstance(scenario, FixedBudgetScenario)
-        else c.SPEND_CONSTRAINT_DEFAULT_FLEXIBLE_BUDGET
-    )
-    if spend_constraint_lower is None:
-      spend_constraint_lower = spend_constraint_default
-    if spend_constraint_upper is None:
-      spend_constraint_upper = spend_constraint_default
-    optimization_lower_bound, optimization_upper_bound = (
-        get_optimization_bounds(
-            n_channels=len(self.channels),
-            spend=spend,
-            round_factor=self.round_factor,
-            spend_constraint_lower=spend_constraint_lower,
-            spend_constraint_upper=spend_constraint_upper,
-        )
-    )
+    
+    if use_pct_total_abs:
+      optimization_lower_bound = lower_abs
+      optimization_upper_bound = upper_abs
+    else:
+      spend_constraint_default = (
+          c.SPEND_CONSTRAINT_DEFAULT_FIXED_BUDGET
+          if isinstance(scenario, FixedBudgetScenario)
+          else c.SPEND_CONSTRAINT_DEFAULT_FLEXIBLE_BUDGET
+      )
+      if spend_constraint_lower is None:
+        spend_constraint_lower = spend_constraint_default
+      if spend_constraint_upper is None:
+        spend_constraint_upper = spend_constraint_default
+
+      (optimization_lower_bound, optimization_upper_bound) = (
+          get_optimization_bounds(
+              n_channels=len(self.channels),
+              spend=spend,
+              round_factor=self.round_factor,
+              spend_constraint_lower=spend_constraint_lower,
+              spend_constraint_upper=spend_constraint_upper,
+          )
+      )
+
     round_factor = get_round_factor(budget, self.gtol)
     if round_factor != self.round_factor:
       warnings.warn(
@@ -1639,7 +1649,7 @@ class BudgetOptimizer:
       )
 
     if fixed_budget:
-      scenario = FixedBudgetScenario(total_budget=budget)
+      scenario = FixedBudgetScenario(total_budget=budget_total)
     elif target_roi:
       scenario = FlexibleBudgetScenario(
           target_metric=c.ROI, target_value=target_roi
@@ -1648,12 +1658,24 @@ class BudgetOptimizer:
       scenario = FlexibleBudgetScenario(
           target_metric=c.MROI, target_value=target_mroi
       )
-    spend = optimization_grid.optimize(
-        scenario=scenario,
-        pct_of_spend=pct_of_spend,
-        spend_constraint_lower=spend_constraint_lower,
-        spend_constraint_upper=spend_constraint_upper,
-    )
+
+    if use_pct_total_abs:
+      spend = optimization_grid.optimize(
+          scenario=scenario,
+          pct_of_spend=pct_of_spend,
+          spend_constraint_lower=None,
+          spend_constraint_upper=None,
+          use_pct_total_abs=use_pct_total_abs,
+          lower_abs=lower_abs,
+          upper_abs=upper_abs
+      )
+    else:
+      spend = optimization_grid.optimize(
+          scenario=scenario,
+          pct_of_spend=pct_of_spend,
+          spend_constraint_lower=spend_constraint_lower,
+          spend_constraint_upper=spend_constraint_upper,
+      )
 
     use_historical_budget = budget is None or np.isclose(
         budget, np.sum(optimization_grid.historical_spend)
@@ -2695,10 +2717,14 @@ class BudgetOptimizer:
         number of columns is equal to the number of total channels, containing
         incremental outcome by channel.
     """
-    n_grid_rows = int(
-        (np.max(np.subtract(spend_bound_upper, spend_bound_lower)) // step_size)
-        + 1
-    )
+    grid_lengths = [
+        len(np.arange(spend_bound_lower[i],
+                      spend_bound_upper[i] + step_size,
+                      step_size))
+        for i in range(len(spend_bound_lower))
+    ]
+    n_grid_rows = max(grid_lengths)
+
     n_grid_columns = len(self._meridian.input_data.get_all_paid_channels())
     spend_grid = np.full([n_grid_rows, n_grid_columns], np.nan)
     for i in range(n_grid_columns):
