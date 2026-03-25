@@ -30,9 +30,6 @@ poetry.lock
 # Environments
 .venv_meridian/
 
-# Compiled style.css
-meridian/analysis/templates/style.css
-
 # .pkl files
 sandbox/*/*.pkl
 examples/*/*.pkl
