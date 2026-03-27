@@ -13,11 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+:root {
+  --title-dark-grey: #202124;
+  --chip-blue: #1967d2;
+  --insights-bg-grey: #eee;
+  --text-grey: #3c4043;
+  --text-green: #34a853;
+  --text-red: #d93025;
+  --border-grey: #dadce0;
+}
+
 body {
   background: #fafbfb;
-  font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+}
 
 .header {
   height: 40px;
@@ -25,19 +37,22 @@ body {
   margin-left: 30px;
   display: grid;
   grid-template-columns: 40px 1fr;
-  column-gap: 28px; }
+  column-gap: 28px;
+}
 
 .logo {
   width: 40px;
-  height: 40px; }
+  height: 40px;
+}
 
 .title {
-  color: var(--grey-900, #202124);
-  font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
-  font-size: 24px;
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 30px;
   font-style: normal;
   font-weight: 400;
-  line-height: 32px; }
+  line-height: 50px;
+}
 
 chips {
   display: inline-flex;
@@ -45,7 +60,8 @@ chips {
   padding-top: 36px;
   padding-bottom: 32px;
   padding-left: 29px;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+}
 
 chip {
   display: inline-flex;
@@ -56,49 +72,58 @@ chip {
   flex-shrink: 0;
   border-radius: 100px;
   background: #e8f0fe;
-  color: var(--blue-700, #1967d2);
+  color: var(--chip-blue);
   text-align: center;
-  font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
+  font-family: var(--font-family);
   font-size: 14px;
   font-style: normal;
   font-weight: 500;
   line-height: 20px;
-  letter-spacing: 0.25px; }
+  letter-spacing: 0.25px;
+}
 
 cards {
   display: flex;
   flex-direction: column;
   row-gap: 32px;
-  margin: 32px 32px 0px 50px; }
+  margin: 32px 32px 0px 50px;
+}
 
 card {
   border-radius: 8px;
-  border: 1px solid #dadce0;
+  border: 1px solid var(--border-grey);
   background: #fff;
   display: flex;
-  flex-direction: column; }
-  card > card-title {
-    padding: 22px 32px;
-    color: var(--grey-900, #202124);
-    font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
-    font-size: 28px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 50px; }
-  card > card-insights {
-    display: flex;
-    flex-direction: row;
-    padding: 22px 20px;
-    background: #eee; }
-    card > card-insights p.insights-text {
-      margin: 0px 25px;
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-body, Roboto, sans-serif);
-      font-size: 16px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 24px;
-      letter-spacing: 0.1px; }
+  flex-direction: column;
+}
+
+card>card-title {
+  padding: 22px 32px;
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 50px;
+}
+
+card>card-insights {
+  display: flex;
+  flex-direction: row;
+  padding: 22px 20px;
+  background: var(--insights-bg-grey);
+}
+
+card>card-insights p.insights-text {
+  margin: 0px 25px;
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.1px;
+}
 
 /* [charts] container is a flexbox that will contain [chart] child elements. */
 charts {
@@ -106,93 +131,125 @@ charts {
   flex-flow: row wrap;
   justify-content: space-between;
   gap: 50px;
-  padding: 59px 69px; }
-  charts chart {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 12px; }
-    charts chart > chart-description {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
-      font-size: 12px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 16px;
-      max-width: 450px; }
-  charts chart-table {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 12px; }
-    charts chart-table .chart-table-title {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
-      font-size: 18px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 24px;
-      margin-bottom: 10px; }
-    charts chart-table .chart-table-content {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-body, Roboto, sans-serif);
-      font-size: 14px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 20px;
-      letter-spacing: 0.2px; }
-      charts chart-table .chart-table-content table {
-        border-radius: 4px;
-        border: 1px solid var(--Grey-300, #dadce0);
-        border-spacing: 0;
-        border-collapse: collapse; }
-      charts chart-table .chart-table-content tr {
-        border-radius: 4px;
-        border: 1px solid var(--Grey-300, #dadce0);
-        border-spacing: 0;
-        border-collapse: collapse; }
-        charts chart-table .chart-table-content tr th,
-        charts chart-table .chart-table-content tr td {
-          padding: 18px 16px; }
-    charts chart-table .chart-table-description {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-display, "Google Sans Display", "Google Sans", sans-serif);
-      font-size: 12px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 16px;
-      max-width: 450px; }
+  padding: 59px 69px;
+}
+
+charts chart {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart>chart-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
+
+charts chart-table {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart-table .chart-table-title {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  margin-bottom: 10px;
+}
+
+charts chart-table .chart-table-content {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.2px;
+}
+
+charts chart-table .chart-table-content table {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr th,
+charts chart-table .chart-table-content tr td {
+  padding: 18px 16px;
+}
+
+charts chart-table .chart-table-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
 
 stats-section {
   display: flex;
   flex-direction: row;
   justify-content: space-around;
-  padding: 32px; }
-  stats-section stats {
-    display: flex;
-    flex-direction: column; }
-    stats-section stats > stats-title {
-      color: var(--grey-900, #202124);
-      font-family: var(--font-body, Roboto, sans-serif);
-      font-size: 14px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
-      letter-spacing: 0.25px; }
-    stats-section stats > stat {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-body, Roboto, sans-serif);
-      font-size: 32px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 40px; }
-    stats-section stats > delta {
-      color: var(--Grey-800, #3c4043);
-      font-family: var(--font-body, Roboto, sans-serif);
-      font-size: 18px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
-      letter-spacing: 0.25px; }
-    stats-section stats .green-text {
-      color: var(--Green-500, #34a853); }
-    stats-section stats .red-text {
-      color: var(--Red-600, #d93025); }
+  padding: 32px;
+}
+
+stats-section stats {
+  display: flex;
+  flex-direction: column;
+}
+
+stats-section stats>stats-title {
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats>stat {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 40px;
+}
+
+stats-section stats>delta {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats .green-text {
+  color: var(--text-green);
+}
+
+stats-section stats .red-text {
+  color: var(--text-red);
+}

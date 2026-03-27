@@ -6,6 +6,9 @@ summarizer:
 optimizer:
   max_channels_response_curves: 8
 
+comparison_metrics:
+  digital_channels: ["digital-afiliacion", "digital-meta", "digital-google", "digital-billing"] # List of digital channels to consider for the "Digital" row.
+
 html_reports:
   font:
     family: '"Space Grotesk"'

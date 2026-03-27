@@ -22,10 +22,6 @@ class GCPClient:
     self.storage_client = storage.Client()
     self.bigquery_client = bigquery.Client()
 
-  # -------------------------
-  # Google Cloud Storage
-  # -------------------------
-
   def upload_file_to_gcs(
       self, bucket_name: str, prefix: str, full_path: str
   ) -> None:
@@ -55,15 +51,18 @@ class GCPClient:
         f"✅ File '{filename}' uploaded to 'gs://{bucket_name}/{key}' successfully."
     )
 
-  def load_df_to_bq(self, df: pd.DataFrame, table_id: str):
+  def load_parquet_to_bq(self, parquet_path: str, table_id: str):
     """
-    Loads a pandas DataFrame into a BigQuery table.
+    Loads a Parquet file into a BigQuery table.
 
     Args:
-        df (pd.DataFrame): DataFrame to load into BigQuery.
+        parquet_path (str): Path to the Parquet file to load into BigQuery.
         table_id (str): BigQuery table ID in the format
                         'project.dataset.table'.
     """
+    # DataFrame from the Parquet file
+    df = pd.read_parquet(parquet_path)
+
     # Configure the load job
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND

@@ -842,26 +842,26 @@ class MediaEffects:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       by_reach: bool = True,
       use_kpi: bool = False,
-      config_path: str | None = None,
   ):
     """Initializes the Media Effects based on the model data and params.
 
     Args:
       meridian: Media mix model with the raw data from the model fitting.
+      client_config: ClientConfig object containing the configuration settings.
       by_reach: For the channel w/ reach and frequency, return the response
         curves by reach given fixed frequency if true; return the response
         curves by frequency given fixed reach if false.
       use_kpi: If `True`, calculate the incremental KPI. Otherwise, calculate
         the incremental revenue using the revenue per KPI (if available).
-      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
-    self.client_config = ClientConfig(config_path)
+    self.client_config = client_config
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -1403,17 +1403,18 @@ class MediaSummary:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       selected_times: Sequence[str] | None = None,
       marginal_roi_by_reach: bool = True,
       non_media_baseline_values: Sequence[float] | None = None,
       use_kpi: bool = False,
-      config_path: str | None = None,
   ):
     """Initializes the media summary metrics based on the model data and params.
 
     Args:
       meridian: Media mix model with the raw data from the model fitting.
+      client_config: ClientConfig object containing the configuration settings.
       confidence_level: Confidence level for media summary metrics credible
         intervals, represented as a value between zero and one.
       selected_times: Optional list containing a subset of times to include. By
@@ -1429,7 +1430,6 @@ class MediaSummary:
         the values defined with `ModelSpec.non_media_baseline_values` will be
         used.
       use_kpi: If `True`, use KPI instead of revenue.
-      config_path: Optional string path to a YAML configuration file.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
@@ -1438,7 +1438,7 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
-    self.client_config = ClientConfig(config_path)
+    self.client_config = client_config
 
   @property
   def paid_summary_metrics(self):

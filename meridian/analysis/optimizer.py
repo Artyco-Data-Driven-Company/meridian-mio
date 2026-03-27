@@ -20,7 +20,6 @@ import functools
 import math
 import os
 from typing import Any, TypeAlias
-from dataclasses import field
 import warnings
 
 import altair as alt
@@ -31,8 +30,6 @@ from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.analysis.client_config import ClientConfig
-from meridian.analysis.helper import GCPClient
-from meridian.analysis.formatter import SaveGcs
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import numpy as np
@@ -503,15 +500,12 @@ class OptimizationResults:
   _optimized_data: xr.Dataset
   _optimization_grid: OptimizationGrid
 
+  # Client configuration for customizing optimization results and outputs.
+  client_config: ClientConfig
+
   # The optional `DataTensors` container to use if optimization was performed
   # on data different from the original `input_data`.
   new_data: analyzer_module.DataTensors | None = None
-
-  # GCP client for uploading reports to GCS.
-  gcp_client: GCPClient = field(default_factory=GCPClient)
-
-  # Client configuration for customizing optimization results and outputs.
-  client_config: ClientConfig = field(default_factory=ClientConfig)
 
   # TODO: Move this, and the plotting methods, to a summarizer.
   @functools.cached_property
@@ -595,23 +589,8 @@ class OptimizationResults:
       filename: str,
       filepath: str,
       currency: str = c.DEFAULT_CURRENCY,
-      save_in_gcs: SaveGcs = None,
   ):
-    """Generates and saves the HTML optimization summary output.
-
-    Args:
-    filename: The filename for the generated HTML output.
-    filepath: The path to the directory where the file will be saved.
-    currency: The currency symbol to use in the report. Defaults to `c.DEFAULT_CURRENCY`.
-
-    save_in_gcs: Optional dictionary for GCS saving configuration.
-      If provided, it should contain the following keys:
-        - bucket_name (str): The name of the GCS bucket to upload to.
-        - product_or_service (str, optional): Name of the subfolder to create inside
-        the "Reports" directory.
-            If not provided, the file will be saved directly under "Reports/".
-    """
-
+    """Generates and saves the HTML optimization summary output."""
     report = self._gen_optimization_summary(currency)
 
     # Create the output directory if it doesn't exist and save the report
@@ -620,18 +599,6 @@ class OptimizationResults:
     with open(full_path, 'w') as f:
       f.write(report)
     print(f'✅ Report saved to {full_path}')
-
-    if save_in_gcs:
-      # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('product_or_service', '')
-      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
-
-      # Upload the file to GCS
-      self.gcp_client.upload_file_to_gcs(
-          bucket_name=save_in_gcs['bucket_name'],
-          prefix=prefix,
-          full_path=full_path,
-      )
 
   def plot_incremental_outcome_delta(self) -> alt.Chart:
     """Plots a waterfall chart showing the change in incremental outcome."""
@@ -1117,6 +1084,12 @@ class OptimizationResults:
     self.template_env.globals[c.SELECTED_GEOS] = (
         self.optimization_grid.selected_geos
     )
+    self.template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
+    )
+    self.template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.font.link', c.FONT_LINK_DEFAULT
+    )
 
     html_template = self.template_env.get_template('summary.html.jinja')
     return html_template.render(
@@ -1370,10 +1343,10 @@ class BudgetOptimizer:
   results can be viewed as plots and as an HTML summary output page.
   """
 
-  def __init__(self, meridian: model.Meridian, config_path: str | None = None):
+  def __init__(self, meridian: model.Meridian, client_config: ClientConfig):
     self._meridian = meridian
     self._analyzer = analyzer_module.Analyzer(self._meridian)
-    self.client_config = ClientConfig(config_path)
+    self.client_config = client_config
 
   def _validate_model_fit(self, use_posterior: bool):
     """Validates that the model is fit."""

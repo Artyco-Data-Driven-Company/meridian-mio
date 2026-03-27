@@ -27,8 +27,7 @@ from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.analysis import visualizer
 from meridian.data import time_coordinates as tc
-from meridian.analysis.helper import GCPClient
-from meridian.analysis.formatter import SaveGcs, LoadToBq
+from meridian.analysis.client_config import ClientConfig
 from meridian.model import model
 import pandas as pd
 import xarray as xr
@@ -73,14 +72,13 @@ class Summarizer:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       use_kpi: bool = False,
-      config_path: str | None = None,
   ):
     """Initialize the visualizer classes that are not time-dependent."""
     self._meridian = meridian
     self._use_kpi = analyzer.Analyzer(meridian)._use_kpi(use_kpi)
-    self.gcp_client = GCPClient()
-    self.config_path = config_path
+    self.client_config = client_config
 
   @functools.cached_property
   def _model_fit(self):
@@ -98,9 +96,7 @@ class Summarizer:
       end_date: tc.Date,
       start_date_cm: tc.Date,
       end_date_cm: tc.Date,
-      digital_channels: list[str] | None = None,
-      save_in_gcs: SaveGcs = None,
-      load_to_bq: LoadToBq = None,
+      bq_product_or_service: str = 'Unknown',
   ):
     """
     Generates and saves the HTML comparison metrics summary output.
@@ -115,51 +111,26 @@ class Summarizer:
         inclusive, in yyyy-mm-dd format.
       end_date_cm (str): End date selector for comparison metrics,
         inclusive, in yyyy-mm-dd format.
-      digital_channels (list[str]): List of digital channel names to
-        consider for the "Total Digital" row. If not provided, "Total Digital"
-        row will not be included.
-
-      save_in_gcs: Optional dictionary for GCS saving configuration.
-        If provided, it should contain the following keys:
-          - bucket_name (str): The name of the GCS bucket to upload to.
-          - product_or_service (str, optional): Name of the subfolder to create inside
-          the "Reports" directory.
-              If not provided, the file will be saved directly under "Reports/".
-
-      load_to_bq: Optional dictionary for BigQuery loading configuration.
-        If provided, it should contain the following keys:
-          - table_id (str): The BigQuery table ID to load the data into.
-          - product_or_service (str): The product or service name to include in the
-          BigQuery table.
-             If not provided, the product_or_service field in the BigQuery table
-             will be set to "Unknown".
+      bq_product_or_service: The product or service name to include in the
+        BigQuery table.
     """
-    # Store the load_to_bq flag in an instance variable
-    self.load_to_bq = load_to_bq
     self.utc_now = datetime.now(timezone.utc)
-
-    report = self._gen_comparison_metrics_summary(
-        start_date, end_date, start_date_cm, end_date_cm, digital_channels
-    )
+    self.filepath_cm = filepath
+    self.prod_or_serv = bq_product_or_service
 
     # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
+
+    # Generate the report content
+    report = self._gen_comparison_metrics_summary(
+        start_date, end_date, start_date_cm, end_date_cm
+    )
+
+    # Save the report to the specified filepath
     full_path = os.path.join(filepath, filename)
     with open(full_path, 'w') as f:
       f.write(report)
     print(f'✅ Report saved to {full_path}')
-
-    if save_in_gcs:
-      # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('product_or_service', '')
-      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
-
-      # Upload the file to GCS
-      self.gcp_client.upload_file_to_gcs(
-          bucket_name=save_in_gcs['bucket_name'],
-          prefix=prefix,
-          full_path=full_path,
-      )
 
   def _gen_comparison_metrics_summary(
       self,
@@ -167,7 +138,6 @@ class Summarizer:
       end_date: tc.Date,
       start_date_cm: tc.Date,
       end_date_cm: tc.Date,
-      digital_channels: list[str] | None = None,
   ) -> str:
     """Generate HTML comparison metrics summary output (as sanitized content str)."""
     all_dates = self._meridian.input_data.time_coordinates.all_dates
@@ -229,13 +199,18 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
+    template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
+    )
+    template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.font.link', c.FONT_LINK_DEFAULT
+    )
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_cm_htmls(
         template_env,
         selected_times=selected_times,
         cm_selected_times=comparison_selected_times,
-        digital_channels=digital_channels,
     )
 
     return html_template.render(
@@ -247,21 +222,20 @@ class Summarizer:
       template_env: jinja2.Environment,
       selected_times: Sequence[str] | None,
       cm_selected_times: Sequence[str] | None,
-      digital_channels: list[str] | None = None,
   ):
     """Creates the HTML snippets for cards in the comparison metrics summary page."""
     media_summary = visualizer.MediaSummary(
         self._meridian,
+        client_config=self.client_config,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
-        config_path=self.config_path,
     )
 
     media_summary_cm = visualizer.MediaSummary(
         self._meridian,
+        client_config=self.client_config,
         selected_times=cm_selected_times,
         use_kpi=self._use_kpi,
-        config_path=self.config_path,
     )
     cards = [
         self._create_comparison_metrics_card_html(
@@ -270,7 +244,6 @@ class Summarizer:
             media_summary_cm=media_summary_cm,
             selected_times=selected_times,
             selected_times_cm=cm_selected_times,
-            digital_channels=digital_channels,
         ),
     ]
 
@@ -282,7 +255,6 @@ class Summarizer:
       filepath: str,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
-      save_in_gcs: SaveGcs = None,
   ):
     """Generates and saves the HTML results summary output.
 
@@ -292,13 +264,6 @@ class Summarizer:
       start_date: Optional start date selector, *inclusive*, in _yyyy-mm-dd_
         format.
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
-
-      save_in_gcs: Optional dictionary for GCS saving configuration.
-        If provided, it should contain the following keys:
-          - bucket_name (str): The name of the GCS bucket to upload to.
-          - product_or_service (str, optional): Name of the subfolder to create inside
-          the "Reports" directory.
-              If not provided, the file will be saved directly under "Reports/".
     """
     report = self._gen_model_results_summary(start_date, end_date)
 
@@ -308,18 +273,6 @@ class Summarizer:
     with open(full_path, 'w') as f:
       f.write(report)
     print(f'✅ Report saved to {full_path}')
-
-    if save_in_gcs:
-      # Determine the folder path in GCS
-      subfolder = save_in_gcs.get('product_or_service', '')
-      prefix = 'Reports' + ('/' + subfolder if subfolder else '')
-
-      # Upload the file to GCS
-      self.gcp_client.upload_file_to_gcs(
-          bucket_name=save_in_gcs['bucket_name'],
-          prefix=prefix,
-          full_path=full_path,
-      )
 
   def _gen_model_results_summary(
       self,
@@ -365,6 +318,12 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
+    template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
+    )
+    template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.font.link', c.FONT_LINK_DEFAULT
+    )
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_htmls(
@@ -384,12 +343,12 @@ class Summarizer:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
         self._meridian,
+        client_config=self.client_config,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
-        config_path=self.config_path,
     )
     media_effects = visualizer.MediaEffects(
-        self._meridian, use_kpi=self._use_kpi, config_path=self.config_path
+        self._meridian, client_config=self.client_config, use_kpi=self._use_kpi
     )
     reach_frequency = (
         visualizer.ReachAndFrequency(
@@ -776,7 +735,6 @@ class Summarizer:
       media_summary_cm: visualizer.MediaSummary,
       selected_times: Sequence[str] | None,
       selected_times_cm: Sequence[str] | None,
-      digital_channels: Sequence[str] | None = None,
   ) -> str:
     """Creates the HTML snippet for the Comparison Metrics card."""
 
@@ -801,7 +759,6 @@ class Summarizer:
     spend_resume_table = self._create_spend_comparison_table_spec(
         period_1_df,
         period_2_df,
-        digital_channels,
     )
 
     contribution_resume_table = self._create_contribution_comparison_table_spec(
@@ -937,13 +894,10 @@ class Summarizer:
         row_values=kpi_df.values.tolist(),
     )
 
-    if self.load_to_bq:
-      df = kpi_resume_table.to_dataframe()
-      df['product_or_service'] = self.load_to_bq.get(
-          'product_or_service', 'Unknown'
-      )
-      df['updated_time'] = self.utc_now
-      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
+    # Save data as Parquet
+    file_name = summary_text.KPI_COMPARISON_ID.replace(' ', '_') + '.parquet'
+    df = kpi_resume_table.to_dataframe()
+    self._comparison_df_to_parquet(df, file_name)
 
     return kpi_resume_table
 
@@ -951,7 +905,6 @@ class Summarizer:
       self,
       period_1_df: pd.DataFrame,
       period_2_df: pd.DataFrame,
-      digital_channels: Sequence[str] | None = None,
   ) -> formatter.TableSpec:
     """Creates the Spend comparison table spec."""
 
@@ -985,6 +938,9 @@ class Summarizer:
     spend_df['channel'] = spend_df['channel'].replace('All Channels', 'Total')
 
     # Create 'Digital' row
+    digital_channels = self.client_config.get(
+        'comparison_metrics.digital_channels', None
+    )
     if digital_channels is not None:
       digital_sum = spend_df[spend_df['channel'].isin(digital_channels)].sum(
           numeric_only=True
@@ -1019,13 +975,10 @@ class Summarizer:
         row_values=spend_df.values.tolist(),
     )
 
-    if self.load_to_bq:
-      df = spend_resume_table.to_dataframe()
-      df['product_or_service'] = self.load_to_bq.get(
-          'product_or_service', 'Unknown'
-      )
-      df['updated_time'] = self.utc_now
-      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
+    # Save data as Parquet
+    file_name = summary_text.SPEND_COMPARISON_ID.replace(' ', '_') + '.parquet'
+    df = spend_resume_table.to_dataframe()
+    self._comparison_df_to_parquet(df, file_name)
 
     return spend_resume_table
 
@@ -1106,13 +1059,12 @@ class Summarizer:
         row_values=contribution_df.values.tolist(),
     )
 
-    if self.load_to_bq:
-      df = contribution_resume_table.to_dataframe()
-      df['product_or_service'] = self.load_to_bq.get(
-          'product_or_service', 'Unknown'
-      )
-      df['updated_time'] = self.utc_now
-      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
+    # Save data as Parquet
+    file_name = (
+        summary_text.CONTRIBUTION_COMPARISON_ID.replace(' ', '_') + '.parquet'
+    )
+    df = contribution_resume_table.to_dataframe()
+    self._comparison_df_to_parquet(df, file_name)
 
     return contribution_resume_table
 
@@ -1219,13 +1171,13 @@ class Summarizer:
         row_values=kpi_contribution_comparison_df.values.tolist(),
     )
 
-    if self.load_to_bq:
-      df = kpi_contribution_resume_table.to_dataframe()
-      df['product_or_service'] = self.load_to_bq.get(
-          'product_or_service', 'Unknown'
-      )
-      df['updated_time'] = self.utc_now
-      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
+    # Save data as Parquet
+    file_name = (
+        summary_text.KPI_CONTRIBUTION_COMPARISON_ID.replace(' ', '_')
+        + '.parquet'
+    )
+    df = kpi_contribution_resume_table.to_dataframe()
+    self._comparison_df_to_parquet(df, file_name)
 
     return kpi_contribution_resume_table
 
@@ -1328,13 +1280,10 @@ class Summarizer:
         row_values=roi_comparison_df.values.tolist(),
     )
 
-    if self.load_to_bq:
-      df = roi_comparison_table.to_dataframe()
-      df['product_or_service'] = self.load_to_bq.get(
-          'product_or_service', 'Unknown'
-      )
-      df['updated_time'] = self.utc_now
-      self.gcp_client.load_df_to_bq(df, self.load_to_bq['table_id'])
+    # Save data as Parquet
+    file_name = summary_text.ROI_COMPARISON_ID.replace(' ', '_') + '.parquet'
+    df = roi_comparison_table.to_dataframe()
+    self._comparison_df_to_parquet(df, file_name)
 
     return roi_comparison_table
 
@@ -1405,3 +1354,11 @@ class Summarizer:
     )
 
     return contribution_pie_chart_spec
+
+  def _comparison_df_to_parquet(self, df: pd.DataFrame, file_name: str) -> None:
+    """Saves a DataFrame as a Parquet file in the comparison metrics directory."""
+    full_path = os.path.join(self.filepath_cm, file_name)
+    df['product_or_service'] = self.prod_or_serv
+    df['updated_time'] = self.utc_now
+    df.to_parquet(full_path, index=False, engine='pyarrow')
+    print(f'✅ Data saved to {full_path}')
