@@ -29,7 +29,7 @@ from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
-from meridian.analysis.client_config import ClientConfig
+from meridian.analysis import CustomizeCharts
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import numpy as np
@@ -500,8 +500,8 @@ class OptimizationResults:
   _optimized_data: xr.Dataset
   _optimization_grid: OptimizationGrid
 
-  # Client configuration for customizing optimization results and outputs.
-  client_config: ClientConfig
+  # CustomizeCharts instance for applying visual overrides to Altair charts.
+  customize_charts: CustomizeCharts = CustomizeCharts()
 
   # The optional `DataTensors` container to use if optimization was performed
   # on data different from the original `input_data`.
@@ -592,6 +592,16 @@ class OptimizationResults:
   ):
     """Generates and saves the HTML optimization summary output."""
     report = self._gen_optimization_summary(currency)
+
+    # Export chart JSON key comparison for debugging/inspection purposes.
+    export_path = os.path.join(filepath, 'export_charts')
+    os.makedirs(export_path, exist_ok=True)
+    if c.CLIENT_CONFIG.get('export_charts_json', False):
+      self.customize_charts.export_chart_json(
+          os.path.join(
+              export_path, 'json_charts_' + filename.replace('.html', '.json')
+          )
+      )
 
     # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
@@ -1084,12 +1094,8 @@ class OptimizationResults:
     self.template_env.globals[c.SELECTED_GEOS] = (
         self.optimization_grid.selected_geos
     )
-    self.template_env.globals['font_family'] = self.client_config.get(
-        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
-    )
-    self.template_env.globals['font_link'] = self.client_config.get(
-        'html_reports.font.link', c.FONT_LINK_DEFAULT
-    )
+    self.template_env.globals['font_family'] = c.FONT_FAMILY
+    self.template_env.globals['font_link'] = c.FONT_LINK
 
     html_template = self.template_env.get_template('summary.html.jinja')
     return html_template.render(
@@ -1248,21 +1254,37 @@ class OptimizationResults:
         id=summary_text.BUDGET_ALLOCATION_CARD_ID,
         title=summary_text.BUDGET_ALLOCATION_CARD_TITLE,
     )
-    spend_delta = formatter.ChartSpec(
-        id=summary_text.SPEND_DELTA_CHART_ID,
-        description=summary_text.SPEND_DELTA_CHART_INSIGHTS,
-        chart_json=self.plot_spend_delta(currency).to_json(),
-    )
-    spend_allocation = formatter.ChartSpec(
-        id=summary_text.SPEND_ALLOCATION_CHART_ID,
-        chart_json=self.plot_budget_allocation().to_json(),
-    )
-    outcome_delta = formatter.ChartSpec(
-        id=summary_text.OUTCOME_DELTA_CHART_ID,
-        description=summary_text.OUTCOME_DELTA_CHART_INSIGHTS_FORMAT.format(
-            outcome=outcome
+    spend_delta = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.SPEND_DELTA_CHART_ID,
+            description=summary_text.SPEND_DELTA_CHART_INSIGHTS,
+            chart_json=self.plot_spend_delta(currency).to_json(),
         ),
-        chart_json=self.plot_incremental_outcome_delta().to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.optimization_summary.spend-delta-chart'
+        ),
+    )
+
+    spend_allocation = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.SPEND_ALLOCATION_CHART_ID,
+            chart_json=self.plot_budget_allocation().to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.optimization_summary.spend-allocation-chart'
+        ),
+    )
+    outcome_delta = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.OUTCOME_DELTA_CHART_ID,
+            description=summary_text.OUTCOME_DELTA_CHART_INSIGHTS_FORMAT.format(
+                outcome=outcome
+            ),
+            chart_json=self.plot_incremental_outcome_delta().to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.optimization_summary.outcome-delta-chart'
+        ),
     )
     spend_allocation_table = formatter.TableSpec(
         id=summary_text.SPEND_ALLOCATION_TABLE_ID,
@@ -1313,17 +1335,23 @@ class OptimizationResults:
         id=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_ID,
         title=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_TITLE,
     )
-    n_channels = self.client_config.get(
-        'optimizer.max_channels_response_curves', 6
+    n_channels = c.CLIENT_CONFIG.get(
+        'html_reports.optimization_summary.optimized-response-curves-chart.max_channels',
+        6,
     )
     if n_channels > len(self.optimized_data.channel):
       n_channels = len(self.optimized_data.channel)
 
-    response_curves = formatter.ChartSpec(
-        id=summary_text.OPTIMIZED_RESPONSE_CURVES_CHART_ID,
-        chart_json=self.plot_response_curves(
-            n_top_channels=n_channels
-        ).to_json(),
+    response_curves = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.OPTIMIZED_RESPONSE_CURVES_CHART_ID,
+            chart_json=self.plot_response_curves(
+                n_top_channels=n_channels
+            ).to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.optimization_summary.optimized-response-curves-chart'
+        ),
     )
     return formatter.create_card_html(
         self.template_env,
@@ -1343,10 +1371,9 @@ class BudgetOptimizer:
   results can be viewed as plots and as an HTML summary output page.
   """
 
-  def __init__(self, meridian: model.Meridian, client_config: ClientConfig):
+  def __init__(self, meridian: model.Meridian):
     self._meridian = meridian
     self._analyzer = analyzer_module.Analyzer(self._meridian)
-    self.client_config = client_config
 
   def _validate_model_fit(self, use_posterior: bool):
     """Validates that the model is fit."""
@@ -1683,7 +1710,6 @@ class BudgetOptimizer:
         _nonoptimized_data_with_optimal_freq=nonoptimized_data_with_optimal_freq,
         _optimized_data=optimized_data,
         _optimization_grid=optimization_grid,
-        client_config=self.client_config,
     )
 
   def create_optimization_tensors(

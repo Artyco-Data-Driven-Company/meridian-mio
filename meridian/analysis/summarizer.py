@@ -26,8 +26,8 @@ from meridian.analysis import analyzer
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.analysis import visualizer
+from meridian.analysis import CustomizeCharts
 from meridian.data import time_coordinates as tc
-from meridian.analysis.client_config import ClientConfig
 from meridian.model import model
 import pandas as pd
 import xarray as xr
@@ -72,13 +72,12 @@ class Summarizer:
   def __init__(
       self,
       meridian: model.Meridian,
-      client_config: ClientConfig,
       use_kpi: bool = False,
   ):
     """Initialize the visualizer classes that are not time-dependent."""
     self._meridian = meridian
     self._use_kpi = analyzer.Analyzer(meridian)._use_kpi(use_kpi)
-    self.client_config = client_config
+    self.customize_charts = CustomizeCharts()
 
   @functools.cached_property
   def _model_fit(self):
@@ -118,15 +117,23 @@ class Summarizer:
     self.filepath_cm = filepath
     self.prod_or_serv = bq_product_or_service
 
-    # Create the output directory if it doesn't exist and save the report
-    os.makedirs(filepath, exist_ok=True)
-
     # Generate the report content
     report = self._gen_comparison_metrics_summary(
         start_date, end_date, start_date_cm, end_date_cm
     )
 
-    # Save the report to the specified filepath
+    # Export chart JSON key comparison for debugging/inspection purposes.
+    export_path = os.path.join(filepath, 'export_charts')
+    os.makedirs(export_path, exist_ok=True)
+    if c.CLIENT_CONFIG.get('export_charts_json', False):
+      self.customize_charts.export_chart_json(
+          os.path.join(
+              export_path, 'json_charts_' + filename.replace('.html', '.json')
+          )
+      )
+
+    # Create the output directory if it doesn't exist and save the report
+    os.makedirs(filepath, exist_ok=True)
     full_path = os.path.join(filepath, filename)
     with open(full_path, 'w') as f:
       f.write(report)
@@ -199,12 +206,8 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
-    template_env.globals['font_family'] = self.client_config.get(
-        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
-    )
-    template_env.globals['font_link'] = self.client_config.get(
-        'html_reports.font.link', c.FONT_LINK_DEFAULT
-    )
+    template_env.globals['font_family'] = c.FONT_FAMILY
+    template_env.globals['font_link'] = c.FONT_LINK
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_cm_htmls(
@@ -226,14 +229,12 @@ class Summarizer:
     """Creates the HTML snippets for cards in the comparison metrics summary page."""
     media_summary = visualizer.MediaSummary(
         self._meridian,
-        client_config=self.client_config,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
     )
 
     media_summary_cm = visualizer.MediaSummary(
         self._meridian,
-        client_config=self.client_config,
         selected_times=cm_selected_times,
         use_kpi=self._use_kpi,
     )
@@ -266,6 +267,16 @@ class Summarizer:
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
     """
     report = self._gen_model_results_summary(start_date, end_date)
+
+    # Export chart JSON key comparison for debugging/inspection purposes.
+    export_path = os.path.join(filepath, 'export_charts')
+    os.makedirs(export_path, exist_ok=True)
+    if c.CLIENT_CONFIG.get('export_charts_json', False):
+      self.customize_charts.export_chart_json(
+          os.path.join(
+              export_path, 'json_charts_' + filename.replace('.html', '.json')
+          )
+      )
 
     # Create the output directory if it doesn't exist and save the report
     os.makedirs(filepath, exist_ok=True)
@@ -318,12 +329,8 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
-    template_env.globals['font_family'] = self.client_config.get(
-        'html_reports.font.family', c.FONT_FAMILY_DEFAULT
-    )
-    template_env.globals['font_link'] = self.client_config.get(
-        'html_reports.font.link', c.FONT_LINK_DEFAULT
-    )
+    template_env.globals['font_family'] = c.FONT_FAMILY
+    template_env.globals['font_link'] = c.FONT_LINK
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_htmls(
@@ -343,12 +350,11 @@ class Summarizer:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
         self._meridian,
-        client_config=self.client_config,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
     )
     media_effects = visualizer.MediaEffects(
-        self._meridian, client_config=self.client_config, use_kpi=self._use_kpi
+        self._meridian, use_kpi=self._use_kpi
     )
     reach_frequency = (
         visualizer.ReachAndFrequency(
@@ -386,12 +392,17 @@ class Summarizer:
     """Creates the HTML snippet for the Model Fit card."""
     model_fit = self._model_fit
     outcome = self._kpi_or_revenue()
-    expected_actual_outcome_chart = formatter.ChartSpec(
-        id=summary_text.EXPECTED_ACTUAL_OUTCOME_CHART_ID,
-        description=summary_text.EXPECTED_ACTUAL_OUTCOME_CHART_DESCRIPTION_FORMAT.format(
-            outcome=outcome
+    expected_actual_outcome_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.EXPECTED_ACTUAL_OUTCOME_CHART_ID,
+            description=summary_text.EXPECTED_ACTUAL_OUTCOME_CHART_DESCRIPTION_FORMAT.format(
+                outcome=outcome
+            ),
+            chart_json=model_fit.plot_model_fit(**kwargs).to_json(),
         ),
-        chart_json=model_fit.plot_model_fit(**kwargs).to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.expected-actual-outcome-chart'
+        ),
     )
 
     predictive_accuracy_table = self._predictive_accuracy_table_spec(**kwargs)
@@ -484,50 +495,75 @@ class Summarizer:
         else c.QUARTERLY
     )
 
-    channel_contrib_area_chart = formatter.ChartSpec(
-        id=summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_ID,
-        description=summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_DESCRIPTION.format(
-            outcome=outcome
+    channel_contrib_area_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_ID,
+            description=summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_DESCRIPTION.format(
+                outcome=outcome
+            ),
+            chart_json=media_summary.plot_channel_contribution_area_chart(
+                time_granularity=time_granularity
+            ).to_json(),
         ),
-        chart_json=media_summary.plot_channel_contribution_area_chart(
-            time_granularity=time_granularity
-        ).to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.channel-contrib-by-time-chart'
+        ),
     )
 
-    channel_contrib_bump_chart = formatter.ChartSpec(
-        id=summary_text.CHANNEL_CONTRIB_RANK_CHART_ID,
-        description=summary_text.CHANNEL_CONTRIB_RANK_CHART_DESCRIPTION.format(
-            outcome=outcome
+    channel_contrib_bump_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.CHANNEL_CONTRIB_RANK_CHART_ID,
+            description=summary_text.CHANNEL_CONTRIB_RANK_CHART_DESCRIPTION.format(
+                outcome=outcome
+            ),
+            chart_json=media_summary.plot_channel_contribution_bump_chart(
+                time_granularity=time_granularity
+            ).to_json(),
         ),
-        chart_json=media_summary.plot_channel_contribution_bump_chart(
-            time_granularity=time_granularity
-        ).to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.channel-contrib-rank-chart'
+        ),
     )
-    channel_drivers_chart = formatter.ChartSpec(
-        id=summary_text.CHANNEL_DRIVERS_CHART_ID,
-        description=summary_text.CHANNEL_DRIVERS_CHART_DESCRIPTION.format(
-            outcome=outcome
+    channel_drivers_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.CHANNEL_DRIVERS_CHART_ID,
+            description=summary_text.CHANNEL_DRIVERS_CHART_DESCRIPTION.format(
+                outcome=outcome
+            ),
+            chart_json=media_summary.plot_contribution_waterfall_chart().to_json(),
         ),
-        chart_json=media_summary.plot_contribution_waterfall_chart().to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.channel-drivers-chart'
+        ),
     )
     lead_channels = self._get_sorted_posterior_mean_metrics_df(
         media_summary, [c.INCREMENTAL_OUTCOME]
     )[c.CHANNEL][:2]
     formatted_channels = [channel.title() for channel in lead_channels]
 
-    spend_outcome_chart = formatter.ChartSpec(
-        id=summary_text.SPEND_OUTCOME_CHART_ID,
-        description=summary_text.SPEND_OUTCOME_CHART_DESCRIPTION.format(
-            outcome=outcome
+    spend_outcome_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.SPEND_OUTCOME_CHART_ID,
+            description=summary_text.SPEND_OUTCOME_CHART_DESCRIPTION.format(
+                outcome=outcome
+            ),
+            chart_json=media_summary.plot_spend_vs_contribution().to_json(),
         ),
-        chart_json=media_summary.plot_spend_vs_contribution().to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.spend-outcome-chart'
+        ),
     )
-    outcome_contribution_chart = formatter.ChartSpec(
-        id=summary_text.OUTCOME_CONTRIBUTION_CHART_ID,
-        description=summary_text.OUTCOME_CONTRIBUTION_CHART_DESCRIPTION.format(
-            outcome=outcome
+    outcome_contribution_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.OUTCOME_CONTRIBUTION_CHART_ID,
+            description=summary_text.OUTCOME_CONTRIBUTION_CHART_DESCRIPTION.format(
+                outcome=outcome
+            ),
+            chart_json=media_summary.plot_contribution_pie_chart().to_json(),
         ),
-        chart_json=media_summary.plot_contribution_pie_chart().to_json(),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.outcome-contribution-chart'
+        ),
     )
     insights = summary_text.CHANNEL_CONTRIB_INSIGHTS_FORMAT.format(
         outcome=outcome,
@@ -584,24 +620,44 @@ class Summarizer:
       media_summary: visualizer.MediaSummary,
   ) -> str:
     """Creates the HTML snippet for the ROI and CPIK Breakdown card."""
-    roi_effectiveness_chart = formatter.ChartSpec(
-        id=summary_text.ROI_EFFECTIVENESS_CHART_ID,
-        description=summary_text.ROI_EFFECTIVENESS_CHART_DESCRIPTION,
-        chart_json=media_summary.plot_roi_vs_effectiveness().to_json(),
+    roi_effectiveness_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.ROI_EFFECTIVENESS_CHART_ID,
+            description=summary_text.ROI_EFFECTIVENESS_CHART_DESCRIPTION,
+            chart_json=media_summary.plot_roi_vs_effectiveness().to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.roi-effectiveness-chart'
+        ),
     )
-    roi_marginal_chart = formatter.ChartSpec(
-        id=summary_text.ROI_MARGINAL_CHART_ID,
-        description=summary_text.ROI_MARGINAL_CHART_DESCRIPTION,
-        chart_json=media_summary.plot_roi_vs_mroi().to_json(),
+    roi_marginal_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.ROI_MARGINAL_CHART_ID,
+            description=summary_text.ROI_MARGINAL_CHART_DESCRIPTION,
+            chart_json=media_summary.plot_roi_vs_mroi().to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.roi-marginal-chart'
+        ),
     )
-    roi_channel_chart = formatter.ChartSpec(
-        id=summary_text.ROI_CHANNEL_CHART_ID,
-        chart_json=media_summary.plot_roi_bar_chart().to_json(),
+    roi_channel_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.ROI_CHANNEL_CHART_ID,
+            chart_json=media_summary.plot_roi_bar_chart().to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.roi-channel-chart'
+        ),
     )
-    cpik_channel_chart = formatter.ChartSpec(
-        id=summary_text.CPIK_CHANNEL_CHART_ID,
-        chart_json=media_summary.plot_cpik().to_json(),
-        description=summary_text.CPIK_CHANNEL_CHART_DESCRIPTION,
+    cpik_channel_chart = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.CPIK_CHANNEL_CHART_ID,
+            chart_json=media_summary.plot_cpik().to_json(),
+            description=summary_text.CPIK_CHANNEL_CHART_DESCRIPTION,
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.model_results_summary.cpik-channel-chart'
+        ),
     )
     roi_df = self._get_sorted_posterior_mean_metrics_df(media_summary, [c.ROI])
     effectiveness_df = self._get_sorted_posterior_mean_metrics_df(
@@ -646,20 +702,25 @@ class Summarizer:
     outcome = self._kpi_or_revenue()
     charts = []
     charts.append(
-        formatter.ChartSpec(
-            id=summary_text.RESPONSE_CURVES_CHART_ID,
-            description=summary_text.RESPONSE_CURVES_CHART_DESCRIPTION_FORMAT.format(
-                outcome=outcome
-            ),
-            chart_json=media_effects.plot_response_curves(
-                confidence_level=c.DEFAULT_CONFIDENCE_LEVEL,
-                selected_times=(
-                    frozenset(selected_times) if selected_times else None
+        self.customize_charts.register_chart_spec(
+            formatter.ChartSpec(
+                id=summary_text.RESPONSE_CURVES_CHART_ID,
+                description=summary_text.RESPONSE_CURVES_CHART_DESCRIPTION_FORMAT.format(
+                    outcome=outcome
                 ),
-                plot_separately=False,
-                include_ci=False,
-                num_channels_displayed=7,
-            ).to_json(),
+                chart_json=media_effects.plot_response_curves(
+                    confidence_level=c.DEFAULT_CONFIDENCE_LEVEL,
+                    selected_times=(
+                        frozenset(selected_times) if selected_times else None
+                    ),
+                    plot_separately=False,
+                    include_ci=False,
+                    num_channels_displayed=7,
+                ).to_json(),
+            ),
+            chart_overrides=c.CLIENT_CONFIG.get(
+                'html_reports.model_results_summary.response-curves-chart'
+            ),
         )
     )
 
@@ -683,12 +744,17 @@ class Summarizer:
       )
 
       charts.append(
-          formatter.ChartSpec(
-              id=summary_text.OPTIMAL_FREQUENCY_CHART_ID,
-              description=description,
-              chart_json=reach_frequency.plot_optimal_frequency(
-                  selected_channels=[channel_name],
-              ).to_json(),
+          self.customize_charts.register_chart_spec(
+              formatter.ChartSpec(
+                  id=summary_text.OPTIMAL_FREQUENCY_CHART_ID,
+                  description=description,
+                  chart_json=reach_frequency.plot_optimal_frequency(
+                      selected_channels=[channel_name],
+                  ).to_json(),
+              ),
+              chart_overrides=c.CLIENT_CONFIG.get(
+                  'html_reports.model_results_summary.optimal-frequency-chart'
+              ),
           )
       )
 
@@ -938,8 +1004,8 @@ class Summarizer:
     spend_df['channel'] = spend_df['channel'].replace('All Channels', 'Total')
 
     # Create 'Digital' row
-    digital_channels = self.client_config.get(
-        'comparison_metrics.digital_channels', None
+    digital_channels = c.CLIENT_CONFIG.get(
+        'html_reports.comparison_metrics_summary.digital_channels', None
     )
     if digital_channels is not None:
       digital_sum = spend_df[spend_df['channel'].isin(digital_channels)].sum(
@@ -1308,12 +1374,17 @@ class Summarizer:
     spend_df['pct_of_total_spend'] = spend_df[c.SPEND] / total_spend
 
     # Create ChartSpec for Spend pie chart
-    spend_pie_chart_spec = formatter.ChartSpec(
-        id=summary_text.SPEND_COMPARISON_CHART_ID,
-        description=summary_text.SPEND_COMPARISON_CHART_DESCRIPTION,
-        chart_json=media_summary.plot_spend_comparison_pie_chart(
-            spend_df
-        ).to_json(),
+    spend_pie_chart_spec = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.SPEND_COMPARISON_CHART_ID,
+            description=summary_text.SPEND_COMPARISON_CHART_DESCRIPTION,
+            chart_json=media_summary.plot_spend_comparison_pie_chart(
+                spend_df
+            ).to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.comparison_metrics_summary.spend-comparison-pie-chart'
+        ),
     )
 
     return spend_pie_chart_spec
@@ -1345,19 +1416,25 @@ class Summarizer:
     )
 
     # Create ChartSpec for Spend pie chart
-    contribution_pie_chart_spec = formatter.ChartSpec(
-        id=summary_text.CONTRIBUTION_COMPARISON_CHART_ID,
-        description=summary_text.CONTRIBUTION_COMPARISON_CHART_DESCRIPTION,
-        chart_json=media_summary.plot_contribution_comparison_pie_chart(
-            contribution_df
-        ).to_json(),
+    contribution_pie_chart_spec = self.customize_charts.register_chart_spec(
+        formatter.ChartSpec(
+            id=summary_text.CONTRIBUTION_COMPARISON_CHART_ID,
+            description=summary_text.CONTRIBUTION_COMPARISON_CHART_DESCRIPTION,
+            chart_json=media_summary.plot_contribution_comparison_pie_chart(
+                contribution_df
+            ).to_json(),
+        ),
+        chart_overrides=c.CLIENT_CONFIG.get(
+            'html_reports.comparison_metrics_summary.contribution-comparison-pie-chart'
+        ),
     )
 
     return contribution_pie_chart_spec
 
   def _comparison_df_to_parquet(self, df: pd.DataFrame, file_name: str) -> None:
     """Saves a DataFrame as a Parquet file in the comparison metrics directory."""
-    full_path = os.path.join(self.filepath_cm, file_name)
+    full_path = os.path.join(self.filepath_cm, 'cm_tables', file_name)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
     df['product_or_service'] = self.prod_or_serv
     df['updated_time'] = self.utc_now
     df.to_parquet(full_path, index=False, engine='pyarrow')

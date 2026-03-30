@@ -1,12 +1,68 @@
-summarizer:
-  hide_abs_number_contribution_waterfall_chart: true
-  hide_roi_values_spend_vs_contribution_chart: true
-  max_channels_response_curves: 8
+# If true, the Vega-Lite JSON for each chart will be exported.
+export_charts_json: true
 
-optimizer:
-  max_channels_response_curves: 8
+# Constants for colors, fonts, and other styling options.
+grey_600: &grey_600 "#C3C7C9"
+grey_700: &grey_700 "#5F6368"
+red_300: &red_300 "#F28B82"
+purple_500: &purple_500 "#AF5CF7"
+green_300: &green_300 "#81C995"
+font_family: &font_family '"Space Grotesk"'
+font_link: &font_link "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+color_domain: &color_domain [ digital-afiliacion, digital-meta, digital-google, off-television, off-radio, off-outdoor, off-news, digital-billing ]
+color_range: &color_range [ "#700F08", "#D93025", "#F1A5A1", "#5F6368", "#AF5CF7", "#571A8B", "#C3C7C9", "#000000" ]
+digital_channels: &digital_channels [ "digital-afiliacion", "digital-meta", "digital-google", "digital-billing" ] # List of digital channels to consider for the "Digital" row.
 
 html_reports:
-  font:
-    family: '"Space Grotesk"'
-    link: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+  global:
+    font_family: *font_family
+    font_link: *font_link
+
+  model_results_summary:
+    expected-actual-outcome-chart:
+      pass: true
+    channel-drivers-chart:
+      hide_abs_number: true
+      layer: [ { encoding: { color: { condition: { value: *grey_600 }, value: *red_300 } } } ]
+    spend-outcome-chart:
+      hide_roi_values: true
+      spec: { layer: [ { encoding: { color: { scale: { range: [ *red_300, *grey_600, *purple_500 ] } } } }, { mark: { color: *purple_500 } } ] }
+    outcome-contribution-chart:
+      layer: [ { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } }, { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } } ]
+    channel-contrib-by-time-chart:
+      pass: true
+    channel-contrib-rank-chart:
+      pass: true
+    roi-effectiveness-chart:
+      pass: true
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
+    roi-marginal-chart:
+      pass: true
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
+    roi-channel-chart:
+      pass: true
+      layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
+    cpik-channel-chart:
+      pass: true
+      layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
+    response-curves-chart:
+      max_channels: 6
+      pass: true
+      layer: [ { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } } ]
+
+  comparison_metrics_summary:
+    digital_channels: *digital_channels
+    spend-comparison-pie-chart:
+      pass: true
+    contribution-comparison-pie-chart:
+      pass: true
+
+  optimization_summary:
+    spend-delta-chart:
+      layer: [ { encoding: { color: { condition: { value: *green_300 }, value: *red_300 } } } ]
+    spend-allocation-chart:
+      pass: true
+    outcome-delta-chart:
+      layer: [ { encoding: { color: { condition: [ { value: *grey_700 }, { value: *red_300 } ], value: *green_300 } } } ]
+    optimized-response-curves-chart:
+      max_channels: 6

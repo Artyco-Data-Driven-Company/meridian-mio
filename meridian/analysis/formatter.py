@@ -92,8 +92,8 @@ class StatsSpec:
 
 TEXT_CONFIG = immutabledict.immutabledict(
     {
-        'titleFont': c.FONT_ROBOTO,
-        'labelFont': c.FONT_ROBOTO,
+        'titleFont': c.FONT_FAMILY,
+        'labelFont': c.FONT_FAMILY,
         'titleFontWeight': 'normal',
         'titleFontSize': c.AXIS_FONT_SIZE,
         'labelFontSize': c.AXIS_FONT_SIZE,
@@ -130,7 +130,7 @@ def custom_title_params(title: str) -> alt.TitleParams:
       text=title,
       anchor='start',
       fontSize=c.TITLE_FONT_SIZE,
-      font=c.FONT_GOOGLE_SANS_DISPLAY,
+      font=c.FONT_FAMILY,
       fontWeight='normal',
       offset=c.PADDING_10,
       color=c.GREY_800,

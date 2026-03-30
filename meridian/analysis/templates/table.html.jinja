@@ -25,13 +25,7 @@ limitations under the License.
       </tr>
 
       {% for row in row_values %}
-        <tr class="chart-table-row-values"
-          {% set row_text = row|join(' ') %}
-            {% if 'Digital' in row_text %}style="background-color: #e8f5e8;"
-            {% elif 'Baseline' in row_text %}style="background-color: #e3f2fd;"
-            {% elif 'Total' in row_text %}style="background-color: #eee;"
-            {% elif 'MediaAtr' in row_text %}style="background-color: #eee;"
-            {% endif %}>
+        <tr class="chart-table-row-values">
         {% for value in row %}
           <td>{{ value }}</td>
         {% endfor %}

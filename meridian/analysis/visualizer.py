@@ -25,7 +25,6 @@ from meridian.analysis import analyzer
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.model import model
-from meridian.analysis.client_config import ClientConfig
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -793,7 +792,7 @@ class ReachAndFrequency:
         dx=5,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_FAMILY,
         fontWeight='lighter',
     ).encode(
         text=alt.value(summary_text.OPTIMAL_FREQ_LABEL),
@@ -805,7 +804,7 @@ class ReachAndFrequency:
         dx=110,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_FAMILY,
         fontWeight='lighter',
     ).encode(
         text=alt.Text(f'{c.OPTIMAL_FREQUENCY}:Q', format='.2f'),
@@ -842,7 +841,6 @@ class MediaEffects:
   def __init__(
       self,
       meridian: model.Meridian,
-      client_config: ClientConfig,
       by_reach: bool = True,
       use_kpi: bool = False,
   ):
@@ -850,7 +848,6 @@ class MediaEffects:
 
     Args:
       meridian: Media mix model with the raw data from the model fitting.
-      client_config: ClientConfig object containing the configuration settings.
       by_reach: For the channel w/ reach and frequency, return the response
         curves by reach given fixed frequency if true; return the response
         curves by frequency given fixed reach if false.
@@ -861,7 +858,6 @@ class MediaEffects:
     self._analyzer = analyzer.Analyzer(meridian)
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
-    self.client_config = client_config
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -1006,8 +1002,9 @@ class MediaEffects:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
     else:
-      num_channels_displayed: int = self.client_config.get(
-          'summarizer.max_channels_response_curves', 7
+      num_channels_displayed: int = c.CLIENT_CONFIG.get(
+          'html_reports.model_results_summary.response-curves-chart.max_channels',
+          7,
       )  # type: ignore
 
       if num_channels_displayed > total_num_channels:
@@ -1403,7 +1400,6 @@ class MediaSummary:
   def __init__(
       self,
       meridian: model.Meridian,
-      client_config: ClientConfig,
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       selected_times: Sequence[str] | None = None,
       marginal_roi_by_reach: bool = True,
@@ -1414,7 +1410,6 @@ class MediaSummary:
 
     Args:
       meridian: Media mix model with the raw data from the model fitting.
-      client_config: ClientConfig object containing the configuration settings.
       confidence_level: Confidence level for media summary metrics credible
         intervals, represented as a value between zero and one.
       selected_times: Optional list containing a subset of times to include. By
@@ -1438,7 +1433,6 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
-    self.client_config = client_config
 
   @property
   def paid_summary_metrics(self):
@@ -1752,7 +1746,7 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_ROBOTO,
+                    labelFont=c.FONT_FAMILY,
                     title=None,
                     orient='bottom',
                 ),
@@ -1866,7 +1860,7 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_ROBOTO,
+                    labelFont=c.FONT_FAMILY,
                     title=None,
                     orient='bottom',
                 ),
@@ -1914,8 +1908,9 @@ class MediaSummary:
         axis=1,
     )
 
-    if self.client_config.get(
-        'summarizer.hide_abs_number_contribution_waterfall_chart', False
+    if c.CLIENT_CONFIG.get(
+        'html_reports.model_results_summary.channel-drivers-chart.hide_abs_number',
+        False,
     ):
       outcome_df['outcome_text'] = outcome_df[pct].apply(
           lambda x: f'{round(x * 100, 1)}%'
@@ -2019,7 +2014,7 @@ class MediaSummary:
                 legendX=130,
                 legendY=320,
                 labelFontSize=c.AXIS_FONT_SIZE,
-                labelFont=c.FONT_ROBOTO,
+                labelFont=c.FONT_FAMILY,
                 title=None,
             ),
         ),
@@ -2029,7 +2024,7 @@ class MediaSummary:
         radius=110,
         fill='white',
         size=c.TITLE_FONT_SIZE,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_FAMILY,
     ).encode(text=alt.Text(f'{c.PCT_OF_CONTRIBUTION}:Q', format='.0%'))
     return (
         alt.layer(pie, text, data=outcome_df)
@@ -2122,8 +2117,9 @@ class MediaSummary:
         )
     )
     elements.append(roi_text)
-    if self.client_config.get(
-        'summarizer.hide_roi_values_spend_vs_contribution_chart', False
+    if c.CLIENT_CONFIG.get(
+        'html_reports.model_results_summary.spend-outcome-chart.hide_roi_values',
+        False,
     ):
       elements.pop()  # Remove the ROI text if the config is set to hide it.
 
@@ -2764,7 +2760,7 @@ class MediaSummary:
         radius=125,
         fill='white',
         size=14,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_FAMILY,
     ).encode(text=alt.Text(f'{"pct_of_total_spend"}:Q', format='.0%'))
 
     return (
@@ -2810,7 +2806,7 @@ class MediaSummary:
         radius=125,
         fill='white',
         size=14,
-        font=c.FONT_ROBOTO,
+        font=c.FONT_FAMILY,
     ).encode(text=alt.Text(f'{"pct_of_total_contribution"}:Q', format='.0%'))
 
     return (
