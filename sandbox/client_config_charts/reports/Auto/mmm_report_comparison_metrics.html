@@ -25,9 +25,9 @@ limitations under the License.
     <title>
       Marketing Mix Modeling Report
     </title>
-    <link href="https://fonts.googleapis.com/css?family=Google+Sans:400,500,700&amp;subset=cyrillic,cyrillic-ext,latin-ext"
-          rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+      :root {--font-family: "Space Grotesk";}
       /**
  * Copyright 2024 Google LLC
  *
@@ -43,11 +43,23 @@ limitations under the License.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+:root {
+  --title-dark-grey: #202124;
+  --chip-blue: #1967d2;
+  --insights-bg-grey: #eee;
+  --text-grey: #3c4043;
+  --text-green: #34a853;
+  --text-red: #d93025;
+  --border-grey: #dadce0;
+}
+
 body {
   background: #fafbfb;
-  font-family: "Google Sans Display", "Google Sans", sans-serif;
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+}
 
 .header {
   height: 40px;
@@ -55,19 +67,22 @@ body {
   margin-left: 30px;
   display: grid;
   grid-template-columns: 40px 1fr;
-  column-gap: 28px; }
+  column-gap: 28px;
+}
 
 .logo {
   width: 40px;
-  height: 40px; }
+  height: 40px;
+}
 
 .title {
-  color: var(--grey-900, #202124);
-  font-family: "Google Sans Display", "Google Sans", sans-serif;
-  font-size: 24px;
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 30px;
   font-style: normal;
   font-weight: 400;
-  line-height: 32px; }
+  line-height: 50px;
+}
 
 chips {
   display: inline-flex;
@@ -75,7 +90,8 @@ chips {
   padding-top: 36px;
   padding-bottom: 32px;
   padding-left: 29px;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+}
 
 chip {
   display: inline-flex;
@@ -86,49 +102,58 @@ chip {
   flex-shrink: 0;
   border-radius: 100px;
   background: #e8f0fe;
-  color: var(--blue-700, #1967d2);
+  color: var(--chip-blue);
   text-align: center;
-  font-family: "Google Sans Display", "Google Sans", sans-serif;
+  font-family: var(--font-family);
   font-size: 14px;
   font-style: normal;
   font-weight: 500;
   line-height: 20px;
-  letter-spacing: 0.25px; }
+  letter-spacing: 0.25px;
+}
 
 cards {
   display: flex;
   flex-direction: column;
   row-gap: 32px;
-  margin: 32px 32px 0px 50px; }
+  margin: 32px 32px 0px 50px;
+}
 
 card {
   border-radius: 8px;
-  border: 1px solid #dadce0;
+  border: 1px solid var(--border-grey);
   background: #fff;
   display: flex;
-  flex-direction: column; }
-  card > card-title {
-    padding: 22px 32px;
-    color: var(--grey-900, #202124);
-    font-family: "Google Sans Display", "Google Sans", sans-serif;
-    font-size: 28px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 50px; }
-  card > card-insights {
-    display: flex;
-    flex-direction: row;
-    padding: 22px 20px;
-    background: #eee; }
-    card > card-insights p.insights-text {
-      margin: 0px 25px;
-      color: var(--Grey-800, #3c4043);
-      font-family: Roboto;
-      font-size: 16px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 24px;
-      letter-spacing: 0.1px; }
+  flex-direction: column;
+}
+
+card>card-title {
+  padding: 22px 32px;
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 50px;
+}
+
+card>card-insights {
+  display: flex;
+  flex-direction: row;
+  padding: 22px 20px;
+  background: var(--insights-bg-grey);
+}
+
+card>card-insights p.insights-text {
+  margin: 0px 25px;
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.1px;
+}
 
 /* [charts] container is a flexbox that will contain [chart] child elements. */
 charts {
@@ -136,96 +161,128 @@ charts {
   flex-flow: row wrap;
   justify-content: space-between;
   gap: 50px;
-  padding: 59px 69px; }
-  charts chart {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 12px; }
-    charts chart > chart-description {
-      color: var(--Grey-800, #3c4043);
-      font-family: "Google Sans Display", "Google Sans", sans-serif;
-      font-size: 12px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 16px;
-      max-width: 450px; }
-  charts chart-table {
-    display: flex;
-    flex-flow: column nowrap;
-    gap: 12px; }
-    charts chart-table .chart-table-title {
-      color: var(--Grey-800, #3c4043);
-      font-family: "Google Sans Display", "Google Sans", sans-serif;
-      font-size: 18px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 24px;
-      margin-bottom: 10px; }
-    charts chart-table .chart-table-content {
-      color: var(--Grey-800, #3c4043);
-      font-family: Roboto;
-      font-size: 14px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 20px;
-      letter-spacing: 0.2px; }
-      charts chart-table .chart-table-content table {
-        border-radius: 4px;
-        border: 1px solid var(--Grey-300, #dadce0);
-        border-spacing: 0;
-        border-collapse: collapse; }
-      charts chart-table .chart-table-content tr {
-        border-radius: 4px;
-        border: 1px solid var(--Grey-300, #dadce0);
-        border-spacing: 0;
-        border-collapse: collapse; }
-        charts chart-table .chart-table-content tr th,
-        charts chart-table .chart-table-content tr td {
-          padding: 18px 16px; }
-    charts chart-table .chart-table-description {
-      color: var(--Grey-800, #3c4043);
-      font-family: "Google Sans Display", "Google Sans", sans-serif;
-      font-size: 12px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 16px;
-      max-width: 450px; }
+  padding: 59px 69px;
+}
+
+charts chart {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart>chart-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
+
+charts chart-table {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart-table .chart-table-title {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  margin-bottom: 10px;
+}
+
+charts chart-table .chart-table-content {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.2px;
+}
+
+charts chart-table .chart-table-content table {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr th,
+charts chart-table .chart-table-content tr td {
+  padding: 18px 16px;
+}
+
+charts chart-table .chart-table-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
 
 stats-section {
   display: flex;
   flex-direction: row;
   justify-content: space-around;
-  padding: 32px; }
-  stats-section stats {
-    display: flex;
-    flex-direction: column; }
-    stats-section stats > stats-title {
-      color: var(--grey-900, #202124);
-      font-family: Roboto;
-      font-size: 14px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
-      letter-spacing: 0.25px; }
-    stats-section stats > stat {
-      color: var(--Grey-800, #3c4043);
-      font-family: Roboto;
-      font-size: 32px;
-      font-style: normal;
-      font-weight: 400;
-      line-height: 40px; }
-    stats-section stats > delta {
-      color: var(--Grey-800, #3c4043);
-      font-family: Roboto;
-      font-size: 18px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
-      letter-spacing: 0.25px; }
-    stats-section stats .green-text {
-      color: var(--Green-500, #34a853); }
-    stats-section stats .red-text {
-      color: var(--Red-600, #d93025); }
+  padding: 32px;
+}
+
+stats-section stats {
+  display: flex;
+  flex-direction: column;
+}
+
+stats-section stats>stats-title {
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats>stat {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 40px;
+}
+
+stats-section stats>delta {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats .green-text {
+  color: var(--text-green);
+}
+
+stats-section stats .red-text {
+  color: var(--text-red);
+}
     </style>
   </head>
 
@@ -294,9 +351,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       </tr>
 
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>244.803</td>
         
@@ -336,9 +391,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       </tr>
 
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-afiliacion</td>
         
@@ -352,9 +405,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-meta</td>
         
@@ -368,9 +419,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-google</td>
         
@@ -384,9 +433,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-billing</td>
         
@@ -400,9 +447,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-television</td>
         
@@ -416,9 +461,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-radio</td>
         
@@ -432,9 +475,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-outdoor</td>
         
@@ -448,9 +489,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-news</td>
         
@@ -464,10 +503,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #eee;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>Total</td>
         
@@ -481,10 +517,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #e8f5e8;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>Digital</td>
         
@@ -524,9 +557,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       </tr>
 
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-afiliacion</td>
         
@@ -538,9 +569,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-meta</td>
         
@@ -552,9 +581,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-google</td>
         
@@ -566,9 +593,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-billing</td>
         
@@ -580,9 +605,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-television</td>
         
@@ -594,9 +617,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-radio</td>
         
@@ -608,9 +629,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-outdoor</td>
         
@@ -622,9 +641,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-news</td>
         
@@ -636,10 +653,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #eee;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>MediaAtr</td>
         
@@ -651,10 +665,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #e3f2fd;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>Baseline</td>
         
@@ -694,9 +705,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       </tr>
 
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-afiliacion</td>
         
@@ -710,9 +719,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-meta</td>
         
@@ -726,9 +733,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-google</td>
         
@@ -742,9 +747,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>digital-billing</td>
         
@@ -758,9 +761,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-television</td>
         
@@ -774,9 +775,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-radio</td>
         
@@ -790,9 +789,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-outdoor</td>
         
@@ -806,9 +803,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>off-news</td>
         
@@ -822,10 +817,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #eee;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>MediaAtr</td>
         
@@ -839,10 +831,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
         
         </tr>
       
-        <tr class="chart-table-row-values"
-          
-            style="background-color: #e3f2fd;"
-            >
+        <tr class="chart-table-row-values">
         
           <td>Baseline</td>
         
@@ -882,9 +871,7 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       </tr>
 
       
-        <tr class="chart-table-row-values"
-          
-            >
+        <tr class="chart-table-row-values">
         
           <td>8,1</td>
         
@@ -921,9 +908,11 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       width: 'container',
       autosize: { type: 'fit', contains: 'padding' }
     };
-    const spec = JSON.parse("{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v6.1.0.json\",\n  \"config\": {\n    \"view\": {\n      \"continuousHeight\": 300,\n      \"continuousWidth\": 300,\n      \"stroke\": null\n    }\n  },\n  \"data\": {\n    \"name\": \"data-3f96c983abdbb1a51fa8973a7e539da1\"\n  },\n  \"datasets\": {\n    \"data-3f96c983abdbb1a51fa8973a7e539da1\": [\n      {\n        \"channel\": \"digital-afiliacion\",\n        \"pct_of_total_spend\": 0.016524337232112885,\n        \"spend\": 19.980810165405273\n      },\n      {\n        \"channel\": \"digital-google\",\n        \"pct_of_total_spend\": 0.05401905998587608,\n        \"spend\": 65.3184814453125\n      },\n      {\n        \"channel\": \"off-television\",\n        \"pct_of_total_spend\": 0.7747179269790649,\n        \"spend\": 936.769287109375\n      },\n      {\n        \"channel\": \"off-outdoor\",\n        \"pct_of_total_spend\": 0.13872741162776947,\n        \"spend\": 167.7456817626953\n      },\n      {\n        \"channel\": \"off-news\",\n        \"pct_of_total_spend\": 0.01601116918027401,\n        \"spend\": 19.360300064086914\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"encoding\": {\n        \"color\": {\n          \"field\": \"channel\",\n          \"legend\": {\n            \"offset\": -25,\n            \"rowPadding\": 10,\n            \"title\": null\n          },\n          \"type\": \"nominal\"\n        },\n        \"theta\": {\n          \"field\": \"spend\",\n          \"stack\": true,\n          \"type\": \"quantitative\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"channel\",\n            \"type\": \"nominal\"\n          },\n          {\n            \"field\": \"spend\",\n            \"type\": \"quantitative\"\n          },\n          {\n            \"field\": \"pct_of_total_spend\",\n            \"format\": \".1%\",\n            \"title\": \"% of total\",\n            \"type\": \"quantitative\"\n          }\n        ]\n      },\n      \"mark\": {\n        \"type\": \"arc\"\n      }\n    },\n    {\n      \"encoding\": {\n        \"color\": {\n          \"field\": \"channel\",\n          \"legend\": {\n            \"offset\": -25,\n            \"rowPadding\": 10,\n            \"title\": null\n          },\n          \"type\": \"nominal\"\n        },\n        \"text\": {\n          \"field\": \"pct_of_total_spend\",\n          \"format\": \".0%\",\n          \"type\": \"quantitative\"\n        },\n        \"theta\": {\n          \"field\": \"spend\",\n          \"stack\": true,\n          \"type\": \"quantitative\"\n        }\n      },\n      \"mark\": {\n        \"fill\": \"white\",\n        \"font\": \"Roboto\",\n        \"radius\": 125,\n        \"size\": 14,\n        \"type\": \"text\"\n      }\n    }\n  ],\n  \"title\": {\n    \"anchor\": \"start\",\n    \"color\": \"#3C4043\",\n    \"font\": \"Google Sans Display\",\n    \"fontSize\": 18,\n    \"fontWeight\": \"normal\",\n    \"offset\": 10,\n    \"text\": \"Spend Comparison Pie Chart\"\n  },\n  \"width\": 400\n}");
+    const spec = JSON.parse("{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.1.0.json\", \"config\": {\"view\": {\"continuousHeight\": 300, \"continuousWidth\": 300, \"stroke\": null}}, \"data\": {\"name\": \"data-3f96c983abdbb1a51fa8973a7e539da1\"}, \"datasets\": {\"data-3f96c983abdbb1a51fa8973a7e539da1\": [{\"channel\": \"digital-afiliacion\", \"pct_of_total_spend\": 0.016524337232112885, \"spend\": 19.980810165405273}, {\"channel\": \"digital-google\", \"pct_of_total_spend\": 0.05401905998587608, \"spend\": 65.3184814453125}, {\"channel\": \"off-television\", \"pct_of_total_spend\": 0.7747179269790649, \"spend\": 936.769287109375}, {\"channel\": \"off-outdoor\", \"pct_of_total_spend\": 0.13872741162776947, \"spend\": 167.7456817626953}, {\"channel\": \"off-news\", \"pct_of_total_spend\": 0.01601116918027401, \"spend\": 19.360300064086914}]}, \"layer\": [{\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\"}, \"theta\": {\"field\": \"spend\", \"stack\": true, \"type\": \"quantitative\"}, \"tooltip\": [{\"field\": \"channel\", \"type\": \"nominal\"}, {\"field\": \"spend\", \"type\": \"quantitative\"}, {\"field\": \"pct_of_total_spend\", \"format\": \".1%\", \"title\": \"% of total\", \"type\": \"quantitative\"}]}, \"mark\": {\"type\": \"arc\"}}, {\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\"}, \"text\": {\"field\": \"pct_of_total_spend\", \"format\": \".0%\", \"type\": \"quantitative\"}, \"theta\": {\"field\": \"spend\", \"stack\": true, \"type\": \"quantitative\"}}, \"mark\": {\"fill\": \"white\", \"font\": \"\\\"Space Grotesk\\\"\", \"radius\": 125, \"size\": 14, \"type\": \"text\"}}], \"title\": {\"anchor\": \"start\", \"color\": \"#3C4043\", \"font\": \"\\\"Space Grotesk\\\"\", \"fontSize\": 18, \"fontWeight\": \"normal\", \"offset\": 10, \"text\": \"Spend Comparison Pie Chart\"}, \"width\": 400, \"pass\": true}");
     const chartDiv = document.getElementById('spend-comparison-pie-chart');
-    vegaEmbed('#spend-comparison-pie-chart', spec).catch(console.error);
+    setTimeout(() => {
+      vegaEmbed('#spend-comparison-pie-chart', spec).catch(console.error);
+    }, 500);
   })();
 </script>
        
@@ -945,9 +934,11 @@ In this case, we are comparing <b>Period 1</b> (Jan 1, 2025 to Oct 1, 2025) and 
       width: 'container',
       autosize: { type: 'fit', contains: 'padding' }
     };
-    const spec = JSON.parse("{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v6.1.0.json\",\n  \"config\": {\n    \"view\": {\n      \"continuousHeight\": 300,\n      \"continuousWidth\": 300,\n      \"stroke\": null\n    }\n  },\n  \"data\": {\n    \"name\": \"data-b39109b2ccaefa3185f9231aa4e5714f\"\n  },\n  \"datasets\": {\n    \"data-b39109b2ccaefa3185f9231aa4e5714f\": [\n      {\n        \"channel\": \"digital-afiliacion\",\n        \"pct_of_contribution\": 0.0015751556493341923,\n        \"pct_of_total_contribution\": 0.039202217012643814\n      },\n      {\n        \"channel\": \"digital-google\",\n        \"pct_of_contribution\": 0.008512880653142929,\n        \"pct_of_total_contribution\": 0.21186718344688416\n      },\n      {\n        \"channel\": \"off-television\",\n        \"pct_of_contribution\": 0.02027166821062565,\n        \"pct_of_total_contribution\": 0.5045179724693298\n      },\n      {\n        \"channel\": \"off-outdoor\",\n        \"pct_of_contribution\": 0.009141821414232254,\n        \"pct_of_total_contribution\": 0.2275201678276062\n      },\n      {\n        \"channel\": \"off-news\",\n        \"pct_of_contribution\": 0.0006787430611439049,\n        \"pct_of_total_contribution\": 0.01689244620501995\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"encoding\": {\n        \"color\": {\n          \"field\": \"channel\",\n          \"legend\": {\n            \"offset\": -25,\n            \"rowPadding\": 10,\n            \"title\": null\n          },\n          \"type\": \"nominal\"\n        },\n        \"theta\": {\n          \"field\": \"pct_of_contribution\",\n          \"stack\": true,\n          \"type\": \"quantitative\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"channel\",\n            \"type\": \"nominal\"\n          },\n          {\n            \"field\": \"pct_of_contribution\",\n            \"type\": \"quantitative\"\n          },\n          {\n            \"field\": \"pct_of_total_contribution\",\n            \"format\": \".1%\",\n            \"title\": \"% of total\",\n            \"type\": \"quantitative\"\n          }\n        ]\n      },\n      \"mark\": {\n        \"type\": \"arc\"\n      }\n    },\n    {\n      \"encoding\": {\n        \"color\": {\n          \"field\": \"channel\",\n          \"legend\": {\n            \"offset\": -25,\n            \"rowPadding\": 10,\n            \"title\": null\n          },\n          \"type\": \"nominal\"\n        },\n        \"text\": {\n          \"field\": \"pct_of_total_contribution\",\n          \"format\": \".0%\",\n          \"type\": \"quantitative\"\n        },\n        \"theta\": {\n          \"field\": \"pct_of_contribution\",\n          \"stack\": true,\n          \"type\": \"quantitative\"\n        }\n      },\n      \"mark\": {\n        \"fill\": \"white\",\n        \"font\": \"Roboto\",\n        \"radius\": 125,\n        \"size\": 14,\n        \"type\": \"text\"\n      }\n    }\n  ],\n  \"title\": {\n    \"anchor\": \"start\",\n    \"color\": \"#3C4043\",\n    \"font\": \"Google Sans Display\",\n    \"fontSize\": 18,\n    \"fontWeight\": \"normal\",\n    \"offset\": 10,\n    \"text\": \"Contribution Comparison Pie Chart\"\n  },\n  \"width\": 400\n}");
+    const spec = JSON.parse("{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.1.0.json\", \"config\": {\"view\": {\"continuousHeight\": 300, \"continuousWidth\": 300, \"stroke\": null}}, \"data\": {\"name\": \"data-b39109b2ccaefa3185f9231aa4e5714f\"}, \"datasets\": {\"data-b39109b2ccaefa3185f9231aa4e5714f\": [{\"channel\": \"digital-afiliacion\", \"pct_of_contribution\": 0.0015751556493341923, \"pct_of_total_contribution\": 0.039202217012643814}, {\"channel\": \"digital-google\", \"pct_of_contribution\": 0.008512880653142929, \"pct_of_total_contribution\": 0.21186718344688416}, {\"channel\": \"off-television\", \"pct_of_contribution\": 0.02027166821062565, \"pct_of_total_contribution\": 0.5045179724693298}, {\"channel\": \"off-outdoor\", \"pct_of_contribution\": 0.009141821414232254, \"pct_of_total_contribution\": 0.2275201678276062}, {\"channel\": \"off-news\", \"pct_of_contribution\": 0.0006787430611439049, \"pct_of_total_contribution\": 0.01689244620501995}]}, \"layer\": [{\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\"}, \"theta\": {\"field\": \"pct_of_contribution\", \"stack\": true, \"type\": \"quantitative\"}, \"tooltip\": [{\"field\": \"channel\", \"type\": \"nominal\"}, {\"field\": \"pct_of_contribution\", \"type\": \"quantitative\"}, {\"field\": \"pct_of_total_contribution\", \"format\": \".1%\", \"title\": \"% of total\", \"type\": \"quantitative\"}]}, \"mark\": {\"type\": \"arc\"}}, {\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\"}, \"text\": {\"field\": \"pct_of_total_contribution\", \"format\": \".0%\", \"type\": \"quantitative\"}, \"theta\": {\"field\": \"pct_of_contribution\", \"stack\": true, \"type\": \"quantitative\"}}, \"mark\": {\"fill\": \"white\", \"font\": \"\\\"Space Grotesk\\\"\", \"radius\": 125, \"size\": 14, \"type\": \"text\"}}], \"title\": {\"anchor\": \"start\", \"color\": \"#3C4043\", \"font\": \"\\\"Space Grotesk\\\"\", \"fontSize\": 18, \"fontWeight\": \"normal\", \"offset\": 10, \"text\": \"Contribution Comparison Pie Chart\"}, \"width\": 400, \"pass\": true}");
     const chartDiv = document.getElementById('contribution-comparison-pie-chart');
-    vegaEmbed('#contribution-comparison-pie-chart', spec).catch(console.error);
+    setTimeout(() => {
+      vegaEmbed('#contribution-comparison-pie-chart', spec).catch(console.error);
+    }, 500);
   })();
 </script>
       

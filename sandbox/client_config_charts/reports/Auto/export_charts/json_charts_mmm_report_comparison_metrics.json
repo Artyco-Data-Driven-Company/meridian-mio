@@ -1,0 +1,246 @@
+{
+  "spend-comparison-pie-chart": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "config": {
+      "view": {
+        "continuousHeight": 300,
+        "continuousWidth": 300,
+        "stroke": null
+      }
+    },
+    "data": {
+      "name": "data-3f96c983abdbb1a51fa8973a7e539da1"
+    },
+    "datasets": {
+      "data-3f96c983abdbb1a51fa8973a7e539da1": [
+        {
+          "channel": "digital-afiliacion",
+          "pct_of_total_spend": 0.016524337232112885,
+          "spend": 19.980810165405273
+        },
+        {
+          "channel": "digital-google",
+          "pct_of_total_spend": 0.05401905998587608,
+          "spend": 65.3184814453125
+        },
+        {
+          "channel": "off-television",
+          "pct_of_total_spend": 0.7747179269790649,
+          "spend": 936.769287109375
+        },
+        {
+          "channel": "off-outdoor",
+          "pct_of_total_spend": 0.13872741162776947,
+          "spend": 167.7456817626953
+        },
+        {
+          "channel": "off-news",
+          "pct_of_total_spend": 0.01601116918027401,
+          "spend": 19.360300064086914
+        }
+      ]
+    },
+    "layer": [
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal"
+          },
+          "theta": {
+            "field": "spend",
+            "stack": true,
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "channel",
+              "type": "nominal"
+            },
+            {
+              "field": "spend",
+              "type": "quantitative"
+            },
+            {
+              "field": "pct_of_total_spend",
+              "format": ".1%",
+              "title": "% of total",
+              "type": "quantitative"
+            }
+          ]
+        },
+        "mark": {
+          "type": "arc"
+        }
+      },
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal"
+          },
+          "text": {
+            "field": "pct_of_total_spend",
+            "format": ".0%",
+            "type": "quantitative"
+          },
+          "theta": {
+            "field": "spend",
+            "stack": true,
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "fill": "white",
+          "font": "\"Space Grotesk\"",
+          "radius": 125,
+          "size": 14,
+          "type": "text"
+        }
+      }
+    ],
+    "title": {
+      "anchor": "start",
+      "color": "#3C4043",
+      "font": "\"Space Grotesk\"",
+      "fontSize": 18,
+      "fontWeight": "normal",
+      "offset": 10,
+      "text": "Spend Comparison Pie Chart"
+    },
+    "width": 400,
+    "pass": true
+  },
+  "contribution-comparison-pie-chart": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "config": {
+      "view": {
+        "continuousHeight": 300,
+        "continuousWidth": 300,
+        "stroke": null
+      }
+    },
+    "data": {
+      "name": "data-b39109b2ccaefa3185f9231aa4e5714f"
+    },
+    "datasets": {
+      "data-b39109b2ccaefa3185f9231aa4e5714f": [
+        {
+          "channel": "digital-afiliacion",
+          "pct_of_contribution": 0.0015751556493341923,
+          "pct_of_total_contribution": 0.039202217012643814
+        },
+        {
+          "channel": "digital-google",
+          "pct_of_contribution": 0.008512880653142929,
+          "pct_of_total_contribution": 0.21186718344688416
+        },
+        {
+          "channel": "off-television",
+          "pct_of_contribution": 0.02027166821062565,
+          "pct_of_total_contribution": 0.5045179724693298
+        },
+        {
+          "channel": "off-outdoor",
+          "pct_of_contribution": 0.009141821414232254,
+          "pct_of_total_contribution": 0.2275201678276062
+        },
+        {
+          "channel": "off-news",
+          "pct_of_contribution": 0.0006787430611439049,
+          "pct_of_total_contribution": 0.01689244620501995
+        }
+      ]
+    },
+    "layer": [
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal"
+          },
+          "theta": {
+            "field": "pct_of_contribution",
+            "stack": true,
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "channel",
+              "type": "nominal"
+            },
+            {
+              "field": "pct_of_contribution",
+              "type": "quantitative"
+            },
+            {
+              "field": "pct_of_total_contribution",
+              "format": ".1%",
+              "title": "% of total",
+              "type": "quantitative"
+            }
+          ]
+        },
+        "mark": {
+          "type": "arc"
+        }
+      },
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal"
+          },
+          "text": {
+            "field": "pct_of_total_contribution",
+            "format": ".0%",
+            "type": "quantitative"
+          },
+          "theta": {
+            "field": "pct_of_contribution",
+            "stack": true,
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "fill": "white",
+          "font": "\"Space Grotesk\"",
+          "radius": 125,
+          "size": 14,
+          "type": "text"
+        }
+      }
+    ],
+    "title": {
+      "anchor": "start",
+      "color": "#3C4043",
+      "font": "\"Space Grotesk\"",
+      "fontSize": 18,
+      "fontWeight": "normal",
+      "offset": 10,
+      "text": "Contribution Comparison Pie Chart"
+    },
+    "width": 400,
+    "pass": true
+  }
+}

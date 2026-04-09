@@ -15,6 +15,59 @@
 """Constants shared across the Meridian library."""
 
 import immutabledict
+import functools
+import os
+import yaml
+from pathlib import Path
+
+
+def singleton(cls):
+  instances = {}
+
+  @functools.wraps(cls)
+  def get_instance(*args, **kwargs):
+    if cls not in instances:
+      instances[cls] = cls(*args, **kwargs)
+    return instances[cls]
+
+  return get_instance
+
+
+@singleton
+class ClientConfig:
+  """Class to manage client configuration loaded from a YAML file."""
+
+  def __init__(self):
+    config_path = os.getenv('CLIENT_CONFIG_PATH')
+    self.config = {}
+
+    if config_path:
+      path = Path(config_path)
+      if path.exists():
+        print(f'Loading client configuration from {config_path}')
+        with open(path, 'r', encoding='utf-8') as f:
+          self.config = yaml.safe_load(f) or {}
+
+  def get(self, key_path, default=None):
+    """
+    Retrieve a value from the configuration using a dot-separated key path
+    Returns the default value if the key is not found.
+    """
+    keys = key_path.split('.')
+    value = self.config
+
+    for k in keys:
+      if isinstance(value, dict) and k in value:
+        value = value[k]
+      else:
+        return default
+
+    return value
+
+
+# ClientConfig instance.
+CLIENT_CONFIG = ClientConfig()
+
 
 # HEX color map.
 BLACK_100 = '#000000'
@@ -243,28 +296,36 @@ TREATMENT_PRIOR_TYPE_ROI = 'roi'
 TREATMENT_PRIOR_TYPE_MROI = 'mroi'
 TREATMENT_PRIOR_TYPE_COEFFICIENT = 'coefficient'
 TREATMENT_PRIOR_TYPE_CONTRIBUTION = 'contribution'
-PAID_TREATMENT_PRIOR_TYPES = frozenset({
-    TREATMENT_PRIOR_TYPE_ROI,
-    TREATMENT_PRIOR_TYPE_MROI,
-    TREATMENT_PRIOR_TYPE_COEFFICIENT,
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION,
-})
-NON_PAID_TREATMENT_PRIOR_TYPES = frozenset({
-    TREATMENT_PRIOR_TYPE_COEFFICIENT,
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION,
-})
-PAID_MEDIA_ROI_PRIOR_TYPES = frozenset({
-    TREATMENT_PRIOR_TYPE_ROI,
-    TREATMENT_PRIOR_TYPE_MROI,
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION,
-})
+PAID_TREATMENT_PRIOR_TYPES = frozenset(
+    {
+        TREATMENT_PRIOR_TYPE_ROI,
+        TREATMENT_PRIOR_TYPE_MROI,
+        TREATMENT_PRIOR_TYPE_COEFFICIENT,
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION,
+    }
+)
+NON_PAID_TREATMENT_PRIOR_TYPES = frozenset(
+    {
+        TREATMENT_PRIOR_TYPE_COEFFICIENT,
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION,
+    }
+)
+PAID_MEDIA_ROI_PRIOR_TYPES = frozenset(
+    {
+        TREATMENT_PRIOR_TYPE_ROI,
+        TREATMENT_PRIOR_TYPE_MROI,
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION,
+    }
+)
 # Represents a 1% increase in spend.
 MROI_FACTOR = 1.01
 
-NATIONAL_MODEL_SPEC_ARGS = immutabledict.immutabledict({
-    MEDIA_EFFECTS_DIST: MEDIA_EFFECTS_NORMAL,
-    UNIQUE_SIGMA_FOR_EACH_GEO: False,
-})
+NATIONAL_MODEL_SPEC_ARGS = immutabledict.immutabledict(
+    {
+        MEDIA_EFFECTS_DIST: MEDIA_EFFECTS_NORMAL,
+        UNIQUE_SIGMA_FOR_EACH_GEO: False,
+    }
+)
 
 NATIONAL_ANALYZER_PARAMETERS_DEFAULTS = immutabledict.immutabledict(
     {'aggregate_geos': True, 'geos_to_include': None}
@@ -473,62 +534,72 @@ UNSAVED_PARAMETERS = (
     GAMMA_GN_DEV,
     TAU_G_EXCL_BASELINE,  # Used to derive TAU_G.
 )
-IGNORED_PRIORS_MEDIA = immutabledict.immutabledict({
-    TREATMENT_PRIOR_TYPE_ROI: (
-        BETA_M,
-        MROI_M,
-        CONTRIBUTION_M,
-    ),
-    TREATMENT_PRIOR_TYPE_MROI: (
-        BETA_M,
-        ROI_M,
-        CONTRIBUTION_M,
-    ),
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION: (
-        BETA_M,
-        ROI_M,
-        MROI_M,
-    ),
-    TREATMENT_PRIOR_TYPE_COEFFICIENT: (
-        ROI_M,
-        MROI_M,
-        CONTRIBUTION_M,
-    ),
-})
-IGNORED_PRIORS_RF = immutabledict.immutabledict({
-    TREATMENT_PRIOR_TYPE_ROI: (
-        BETA_RF,
-        MROI_RF,
-        CONTRIBUTION_RF,
-    ),
-    TREATMENT_PRIOR_TYPE_MROI: (
-        BETA_RF,
-        ROI_RF,
-        CONTRIBUTION_RF,
-    ),
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION: (
-        BETA_RF,
-        ROI_RF,
-        MROI_RF,
-    ),
-    TREATMENT_PRIOR_TYPE_COEFFICIENT: (
-        ROI_RF,
-        MROI_RF,
-        CONTRIBUTION_RF,
-    ),
-})
-IGNORED_PRIORS_ORGANIC_MEDIA = immutabledict.immutabledict({
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION: (BETA_OM,),
-    TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_OM,),
-})
-IGNORED_PRIORS_ORGANIC_RF = immutabledict.immutabledict({
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION: (BETA_ORF,),
-    TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_ORF,),
-})
-IGNORED_PRIORS_NON_MEDIA_TREATMENTS = immutabledict.immutabledict({
-    TREATMENT_PRIOR_TYPE_CONTRIBUTION: (GAMMA_N,),
-    TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_N,),
-})
+IGNORED_PRIORS_MEDIA = immutabledict.immutabledict(
+    {
+        TREATMENT_PRIOR_TYPE_ROI: (
+            BETA_M,
+            MROI_M,
+            CONTRIBUTION_M,
+        ),
+        TREATMENT_PRIOR_TYPE_MROI: (
+            BETA_M,
+            ROI_M,
+            CONTRIBUTION_M,
+        ),
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION: (
+            BETA_M,
+            ROI_M,
+            MROI_M,
+        ),
+        TREATMENT_PRIOR_TYPE_COEFFICIENT: (
+            ROI_M,
+            MROI_M,
+            CONTRIBUTION_M,
+        ),
+    }
+)
+IGNORED_PRIORS_RF = immutabledict.immutabledict(
+    {
+        TREATMENT_PRIOR_TYPE_ROI: (
+            BETA_RF,
+            MROI_RF,
+            CONTRIBUTION_RF,
+        ),
+        TREATMENT_PRIOR_TYPE_MROI: (
+            BETA_RF,
+            ROI_RF,
+            CONTRIBUTION_RF,
+        ),
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION: (
+            BETA_RF,
+            ROI_RF,
+            MROI_RF,
+        ),
+        TREATMENT_PRIOR_TYPE_COEFFICIENT: (
+            ROI_RF,
+            MROI_RF,
+            CONTRIBUTION_RF,
+        ),
+    }
+)
+IGNORED_PRIORS_ORGANIC_MEDIA = immutabledict.immutabledict(
+    {
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION: (BETA_OM,),
+        TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_OM,),
+    }
+)
+IGNORED_PRIORS_ORGANIC_RF = immutabledict.immutabledict(
+    {
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION: (BETA_ORF,),
+        TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_ORF,),
+    }
+)
+IGNORED_PRIORS_NON_MEDIA_TREATMENTS = immutabledict.immutabledict(
+    {
+        TREATMENT_PRIOR_TYPE_CONTRIBUTION: (GAMMA_N,),
+        TREATMENT_PRIOR_TYPE_COEFFICIENT: (CONTRIBUTION_N,),
+    }
+)
 
 # Inference data dimensions.
 INFERENCE_DIMS = immutabledict.immutabledict(
@@ -563,20 +634,24 @@ N_STEPS = 'n_steps'
 SAMPLE_SHAPE = 'sample_shape'
 SEED = 'seed'
 
-SAMPLE_STATS_METRICS = immutabledict.immutabledict({
-    STEP_SIZE: STEP_SIZE,
-    TARGET_LOG_PROBABILITY_TF: TARGET_LOG_PROBABILITY_ARVIZ,
-    DIVERGING: DIVERGING,
-    N_STEPS: N_STEPS,
-})
+SAMPLE_STATS_METRICS = immutabledict.immutabledict(
+    {
+        STEP_SIZE: STEP_SIZE,
+        TARGET_LOG_PROBABILITY_TF: TARGET_LOG_PROBABILITY_ARVIZ,
+        DIVERGING: DIVERGING,
+        N_STEPS: N_STEPS,
+    }
+)
 
 
 # Adstock hill functions.
-ADSTOCK_HILL_FUNCTIONS = frozenset({
-    'adstock_memory_optimized',
-    'adstock_speed_optimized',
-    'hill',
-})
+ADSTOCK_HILL_FUNCTIONS = frozenset(
+    {
+        'adstock_memory_optimized',
+        'adstock_speed_optimized',
+        'hill',
+    }
+)
 
 # Adstock decay functions.
 GEOMETRIC_DECAY = 'geometric'
@@ -755,10 +830,6 @@ INDEPENDENT = 'independent'
 RESPONSE_CURVE_STEP_SIZE = 0.01
 
 
-# Font names.
-FONT_ROBOTO = 'Roboto'
-FONT_GOOGLE_SANS_DISPLAY = 'Google Sans Display'
-
 # Default confidence level for the analysis.
 DEFAULT_CONFIDENCE_LEVEL = 0.9
 
@@ -785,6 +856,13 @@ SELECTED_GEOS = 'selected_geos'
 CARD_INSIGHTS = 'insights'
 CARD_CHARTS = 'charts'
 CARD_STATS = 'stats'
+FONT_FAMILY = CLIENT_CONFIG.get(
+    'html_reports.global.font_family', 'Google Sans'
+)
+FONT_LINK = CLIENT_CONFIG.get(
+    'html_reports.global.font_link',
+    'https://fonts.googleapis.com/css?family=Google+Sans:400,500,700&amp;subset=cyrillic,cyrillic-ext,latin-ext',
+)
 
 # VegaLite common params.
 VEGALITE_FACET_DEFAULT_WIDTH = 400

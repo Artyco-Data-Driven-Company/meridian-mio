@@ -14,55 +14,8 @@
 
 """The setup.py file for Meridian."""
 
-from pathlib import Path
-import sass
-from setuptools import Command, setup
-from setuptools.command.build import build
-
-
-class ScssCompileCommand(Command):
-  _templates_path = 'meridian/analysis/templates'
-  _scss_output_mapping = {
-      'style.scss': 'style.css',
-  }
-
-  def initialize_options(self):
-    self.build_lib = None
-
-  def finalize_options(self):
-    self.set_undefined_options('build_py', ('build_lib', 'build_lib'))
-
-  def run(self):
-    if not self.build_lib:
-      return
-
-    for scss, css in self._scss_output_mapping.items():
-      self._compile_scss(scss, css)
-
-  def _compile_scss(self, source_filename, dest_filename):
-    dirpath = Path(self.build_lib).joinpath(self._templates_path)
-    dirpath.mkdir(parents=True, exist_ok=True)
-    dest_filepath = dirpath.joinpath(dest_filename)
-
-    source_relpath = self._templates_path + '/' + source_filename
-
-    print(f'compiling {source_relpath} -> {dest_filepath}')
-
-    with open(Path.cwd().joinpath(source_relpath), 'r') as f:
-      css = sass.compile(string=f.read())
-
-    dest_filepath.write_text(css, encoding='utf-8')
-
-  def get_outputs(self):
-    dirpath = Path(self.build_lib).joinpath(self._templates_path)
-    return [
-        dirpath.joinpath(css) for _, css in self._scss_output_mapping.items()
-    ]
-
-
-class CustomBuild(build):
-  sub_commands = [('compile_scss', None)] + build.sub_commands
+from setuptools import setup
 
 
 if __name__ == '__main__':
-  setup(cmdclass={'build': CustomBuild, 'compile_scss': ScssCompileCommand})
+  setup()

@@ -19,8 +19,6 @@ import dataclasses
 import json
 import math
 import os
-from pathlib import Path
-from typing import Any, TypeAlias
 
 import altair as alt
 import immutabledict
@@ -37,10 +35,6 @@ __all__ = [
     'create_template_env',
     'create_card_html',
 ]
-
-# Define type aliases for optional parameters
-SaveGcs: TypeAlias = dict[str, Any] | None
-LoadToBq: TypeAlias = dict[str, Any] | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -65,23 +59,10 @@ class ChartSpec:
     headers = rows[0].keys()
     headers_fix = [header.lower().replace(' ', '_') for header in headers]
     df = pd.DataFrame(rows, columns=headers_fix)
-    df["id"] = self.id
+    df['id'] = self.id
     df.reset_index(drop=True, inplace=True)
     return df
 
-  def to_csv(self, path: str | Path):
-
-    # Create directory if it doesn't exist and get the full file path
-    dir_path = Path(path).parent
-    file_path = Path(path).name
-    dir_path.mkdir(parents=True, exist_ok=True)
-    full_path = dir_path / file_path
-
-    # Get dataframe and save to CSV
-    df = self.to_dataframe()
-    df.to_csv(full_path, index=False, encoding='utf-8')
-
-    print(f'✅ Chart "{self.id}" data saved to {full_path}')
 
 @dataclasses.dataclass(frozen=True)
 class TableSpec:
@@ -94,26 +75,13 @@ class TableSpec:
   def to_dataframe(self) -> pd.DataFrame:
     """Converts the TableSpec to a pandas DataFrame."""
     headers_fix = [
-        header.lower().replace(" ", "_") for header in list(self.column_headers)
+        header.lower().replace(' ', '_') for header in list(self.column_headers)
     ]
     df = pd.DataFrame(self.row_values, columns=headers_fix)
-    df["id"] = self.id
+    df['id'] = self.id
     df.reset_index(drop=True, inplace=True)
     return df
 
-  def to_csv(self, path: str | Path):
-    """Saves the table data to a CSV file at the specified path."""
-
-    # Create directory if it doesn't exist and get the full file path
-    dir_path = Path(path).parent
-    file_path = Path(path).name
-    dir_path.mkdir(parents=True, exist_ok=True)
-    full_path = dir_path / file_path
-
-    # Get dataframe and save to CSV
-    df = self.to_dataframe()
-    df.to_csv(full_path, index=False, encoding='utf-8')
-    print(f"✅ Table '{self.id}' data saved to {full_path}")
 
 @dataclasses.dataclass(frozen=True)
 class StatsSpec:
@@ -122,27 +90,33 @@ class StatsSpec:
   delta: str | None = None
 
 
-TEXT_CONFIG = immutabledict.immutabledict({
-    'titleFont': c.FONT_ROBOTO,
-    'labelFont': c.FONT_ROBOTO,
-    'titleFontWeight': 'normal',
-    'titleFontSize': c.AXIS_FONT_SIZE,
-    'labelFontSize': c.AXIS_FONT_SIZE,
-    'titleColor': c.GREY_700,
-    'labelColor': c.GREY_700,
-})
+TEXT_CONFIG = immutabledict.immutabledict(
+    {
+        'titleFont': c.FONT_FAMILY,
+        'labelFont': c.FONT_FAMILY,
+        'titleFontWeight': 'normal',
+        'titleFontSize': c.AXIS_FONT_SIZE,
+        'labelFontSize': c.AXIS_FONT_SIZE,
+        'titleColor': c.GREY_700,
+        'labelColor': c.GREY_700,
+    }
+)
 
-Y_AXIS_TITLE_CONFIG = immutabledict.immutabledict({
-    'titleAngle': 0,
-    'titleAlign': 'left',
-    'titleY': -20,
-})
+Y_AXIS_TITLE_CONFIG = immutabledict.immutabledict(
+    {
+        'titleAngle': 0,
+        'titleAlign': 'left',
+        'titleY': -20,
+    }
+)
 
-AXIS_CONFIG = immutabledict.immutabledict({
-    'ticks': False,
-    'labelPadding': c.PADDING_10,
-    'domainColor': c.GREY_300,
-})
+AXIS_CONFIG = immutabledict.immutabledict(
+    {
+        'ticks': False,
+        'labelPadding': c.PADDING_10,
+        'domainColor': c.GREY_300,
+    }
+)
 
 
 _template_loader = jinja2.FileSystemLoader(
@@ -156,7 +130,7 @@ def custom_title_params(title: str) -> alt.TitleParams:
       text=title,
       anchor='start',
       fontSize=c.TITLE_FONT_SIZE,
-      font=c.FONT_GOOGLE_SANS_DISPLAY,
+      font=c.FONT_FAMILY,
       fontWeight='normal',
       offset=c.PADDING_10,
       color=c.GREY_800,

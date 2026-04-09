@@ -65,12 +65,6 @@ Este modo está pensado para desarrollo activo, pruebas locales y contribuciones
     pip install --upgrade pip
     pip install -e .'[dev]'
     ```
-- Compilar estilos (necesario para el template `styles.css`):
-    ```sh
-    pip install libsass
-    python setup.py build
-    cp build/lib/meridian/analysis/templates/style.css meridian/analysis/templates/
-    ```
 
 Una vez instalado, se puede utilizar el notebook `sandbox/dev.ipynb` como punto de partida para pruebas locales y validaciones rápidas.
 Alternativamente, es posible crear notebooks **(.ipynb)** o scripts de Python **(.py)** dentro de este entorno para experimentar con nuevas configuraciones o cambios en el código antes de integrarlos en proyectos reales.
