@@ -49,7 +49,7 @@ class GCPClient:
 
     # Create the full GCS path with date-based organization
     bucket = self.storage_client.bucket(bucket_name)
-    key = f"{utc_now}/{prefix}/{filename}"
+    key = f"{prefix}/{filename}"
     blob = bucket.blob(key)
 
     # Upload the file to GCS
