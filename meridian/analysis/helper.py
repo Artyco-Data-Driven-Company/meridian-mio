@@ -1,16 +1,52 @@
-import json
+import functools
 import os
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 from google.cloud import storage, bigquery
 import pandas as pd
 import yaml
 
-from meridian.analysis import formatter
+
+def singleton(cls):
+  instances = {}
+
+  @functools.wraps(cls)
+  def get_instance(*args, **kwargs):
+    if cls not in instances:
+      instances[cls] = cls(*args, **kwargs)
+    return instances[cls]
+
+  return get_instance
 
 
+class ClientConfig:
+  """Class to manage client configuration loaded from a YAML file."""
+
+  def __init__(self, config_path: str | None = None):
+    self.config = {}
+    if config_path:
+      path = Path(config_path)
+      if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+          self.config = yaml.safe_load(f) or {}
+
+  def get(self, key_path, default=None):
+    """
+    Retrieve a value from the configuration using a dot-separated key path
+    Returns the default value if the key is not found.
+    """
+    keys = key_path.split(".")
+    value = self.config
+
+    for k in keys:
+      if isinstance(value, dict) and k in value:
+        value = value[k]
+      else:
+        return default
+
+    return value
+
+
+@singleton
 class GCPClient:
   """
   Helper class for interacting with Google Cloud Platform (GCP) services.
@@ -30,7 +66,7 @@ class GCPClient:
     self.bigquery_client = bigquery.Client()
 
   def upload_file_to_gcs(
-      self, bucket_name: str, prefix: str, full_path: str
+      self, bucket_name: str, prefix: str, filepath: str, filename: str
   ) -> None:
     """
     Uploads a local file to a Google Cloud Storage bucket in a date-organized
@@ -39,17 +75,15 @@ class GCPClient:
     Args:
         bucket_name (str): Target GCS bucket name.
         prefix (str): Prefix for the file path in GCS (e.g., "Reports").
-        full_path (str): Local file path to upload.
+        filepath (str): Local directory path where the file is located.
+        filename (str): Name of the file to upload.
     """
-    # Get the filename from the full path
-    filename = os.path.basename(full_path)
-
-    # Get the current date in YYYYMMDD format
-    utc_now = datetime.now(timezone.utc).strftime("%Y%m%d")
+    # Create fullpath
+    full_path = os.path.join(filepath, filename)
 
     # Create the full GCS path with date-based organization
     bucket = self.storage_client.bucket(bucket_name)
-    key = f"{utc_now}/{prefix}/{filename}"
+    key = f"{prefix}/{filename}"
     blob = bucket.blob(key)
 
     # Upload the file to GCS
@@ -82,101 +116,3 @@ class GCPClient:
     load_job.result()
 
     print(f"✅ Loaded {len(df)} rows into {table_id}.")
-
-
-class CustomizeCharts:
-  """Apply visual overrides to Altair charts based on a YAML configuration."""
-
-  def __init__(self):
-    self.global_config_charts: dict[str, str] = {}
-
-  def register_chart_spec(
-      self,
-      chart_spec: formatter.ChartSpec,
-      chart_overrides: dict[str, object] | None = None,
-  ) -> formatter.ChartSpec:
-    """Registers a ChartSpec with the provided overrides applied, and stores the
-    resulting chart JSON in the global config charts dictionary.
-    """
-    if chart_overrides:
-      chart_spec = self.apply(chart_spec, chart_overrides)
-    self.global_config_charts[chart_spec.id] = chart_spec.chart_json
-    return chart_spec
-
-  def export_chart_json(self, filepath: str) -> None:
-    """Exports chart JSON for all registered charts to a JSON file."""
-    charts_data: dict[str, object] = {}
-
-    # Iterate through the registered charts and add their JSON to the charts_data dict.
-    for chart_id, chart_json in self.global_config_charts.items():
-      chart_payload = json.loads(chart_json)
-      charts_data[chart_id] = chart_payload
-
-    # Write to the specified JSON file with indentation for readability.
-    with open(filepath, "w") as f:
-      json.dump(charts_data, f, indent=2)
-
-  @staticmethod
-  def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]):
-    """Recursively merge *overrides* into *base* in place."""
-    for key, value in overrides.items():
-      if (
-          key in base
-          and isinstance(base[key], dict)
-          and isinstance(value, dict)
-      ):
-        CustomizeCharts._deep_merge(base[key], value)
-      elif (
-          key in base
-          and isinstance(base[key], list)
-          and isinstance(value, list)
-      ):
-        CustomizeCharts._deep_merge_list(base[key], value)
-      else:
-        base[key] = value
-
-  @staticmethod
-  def _deep_merge_list(base: list[Any], overrides: list[Any]) -> None:
-    """Recursively merge list items by index.
-
-    - Dict items are merged recursively.
-    - Scalar items replace the base item.
-    - `null` (`None` in Python) keeps the base item unchanged.
-    - Extra override items are appended.
-    """
-    for idx, override_item in enumerate(overrides):
-      if idx >= len(base):
-        base.append(override_item)
-        continue
-
-      if override_item is None:
-        continue
-
-      base_item = base[idx]
-      if isinstance(base_item, dict) and isinstance(override_item, dict):
-        CustomizeCharts._deep_merge(base_item, override_item)
-      elif isinstance(base_item, list) and isinstance(override_item, list):
-        CustomizeCharts._deep_merge_list(base_item, override_item)
-      else:
-        base[idx] = override_item
-
-  def apply(
-      self,
-      chart_spec: formatter.ChartSpec,
-      chart_overrides: dict[str, Any],
-  ) -> formatter.ChartSpec:
-    """
-    Returns a new ChartSpec with the provided overrides applied to the original chart JSON.
-    """
-    # Get the original chart JSON as a dictionary
-    chart_json_dict = json.loads(chart_spec.chart_json)
-
-    # Recursively merge nested overrides without dropping sibling keys.
-    self._deep_merge(chart_json_dict, chart_overrides)
-
-    # Create a new ChartSpec with the updated config
-    return formatter.ChartSpec(
-        id=chart_spec.id,
-        chart_json=json.dumps(chart_json_dict),
-        description=chart_spec.description,
-    )

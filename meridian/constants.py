@@ -15,59 +15,6 @@
 """Constants shared across the Meridian library."""
 
 import immutabledict
-import functools
-import os
-import yaml
-from pathlib import Path
-
-
-def singleton(cls):
-  instances = {}
-
-  @functools.wraps(cls)
-  def get_instance(*args, **kwargs):
-    if cls not in instances:
-      instances[cls] = cls(*args, **kwargs)
-    return instances[cls]
-
-  return get_instance
-
-
-@singleton
-class ClientConfig:
-  """Class to manage client configuration loaded from a YAML file."""
-
-  def __init__(self):
-    config_path = os.getenv('CLIENT_CONFIG_PATH')
-    self.config = {}
-
-    if config_path:
-      path = Path(config_path)
-      if path.exists():
-        print(f'Loading client configuration from {config_path}')
-        with open(path, 'r', encoding='utf-8') as f:
-          self.config = yaml.safe_load(f) or {}
-
-  def get(self, key_path, default=None):
-    """
-    Retrieve a value from the configuration using a dot-separated key path
-    Returns the default value if the key is not found.
-    """
-    keys = key_path.split('.')
-    value = self.config
-
-    for k in keys:
-      if isinstance(value, dict) and k in value:
-        value = value[k]
-      else:
-        return default
-
-    return value
-
-
-# ClientConfig instance.
-CLIENT_CONFIG = ClientConfig()
-
 
 # HEX color map.
 BLACK_100 = '#000000'
@@ -856,13 +803,8 @@ SELECTED_GEOS = 'selected_geos'
 CARD_INSIGHTS = 'insights'
 CARD_CHARTS = 'charts'
 CARD_STATS = 'stats'
-FONT_FAMILY = CLIENT_CONFIG.get(
-    'html_reports.global.font_family', 'Google Sans'
-)
-FONT_LINK = CLIENT_CONFIG.get(
-    'html_reports.global.font_link',
-    'https://fonts.googleapis.com/css?family=Google+Sans:400,500,700&amp;subset=cyrillic,cyrillic-ext,latin-ext',
-)
+FONT_FAMILY = 'Google Sans'
+FONT_LINK = 'https://fonts.googleapis.com/css?family=Google+Sans:400,500,700&amp;subset=cyrillic,cyrillic-ext,latin-ext'
 
 # VegaLite common params.
 VEGALITE_FACET_DEFAULT_WIDTH = 400

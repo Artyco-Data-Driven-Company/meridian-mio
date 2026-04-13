@@ -22,6 +22,7 @@ import altair as alt
 from meridian import backend
 from meridian import constants as c
 from meridian.analysis import analyzer
+from meridian.analysis import ClientConfig
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.model import model
@@ -46,10 +47,16 @@ alt.data_transformers.disable_max_rows()
 class ModelDiagnostics:
   """Generates model diagnostics plots from the Meridian model fitting."""
 
-  def __init__(self, meridian: model.Meridian, use_kpi: bool = False):
+  def __init__(
+      self,
+      meridian: model.Meridian,
+      client_config: ClientConfig,
+      use_kpi: bool = False,
+  ):
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = client_config
 
   @functools.lru_cache(maxsize=128)
   def _predictive_accuracy_dataset(
@@ -267,9 +274,18 @@ class ModelDiagnostics:
 
     return plot.properties(
         title=formatter.custom_title_params(
-            summary_text.PRIOR_POSTERIOR_DIST_CHART_TITLE
+            summary_text.PRIOR_POSTERIOR_DIST_CHART_TITLE,
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            ),
         )
-    ).configure_axis(**formatter.TEXT_CONFIG)
+    ).configure_axis(
+        **formatter.text_config(
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            )
+        )
+    )
 
   def plot_rhat_boxplot(self) -> alt.Chart:
     """Plots the R-hat box plot.
@@ -356,9 +372,20 @@ class ModelDiagnostics:
     return (
         (boxplot + rhat_reference_line)
         .properties(
-            title=formatter.custom_title_params(summary_text.RHAT_BOXPLOT_TITLE)
+            title=formatter.custom_title_params(
+                summary_text.RHAT_BOXPLOT_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
+            )
         )
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
     )
 
 
@@ -372,6 +399,7 @@ class ModelFit:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       use_kpi: bool = False,
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
   ):
@@ -390,6 +418,7 @@ class ModelFit:
     self._model_fit_data = self._analyzer.expected_vs_actual_data(
         use_kpi=self._use_kpi, confidence_level=confidence_level
     )
+    self.client_config = client_config
 
   @property
   def model_fit_data(self) -> xr.Dataset:
@@ -522,8 +551,19 @@ class ModelFit:
     if show_geo_level:
       plot = plot.facet(column=alt.Column(f'{c.GEO}:O', sort=selected_geos))
 
-    return plot.configure_axis(**formatter.TEXT_CONFIG).properties(
-        title=formatter.custom_title_params(title)
+    return plot.configure_axis(
+        **formatter.text_config(
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            )
+        )
+    ).properties(
+        title=formatter.custom_title_params(
+            title,
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            ),
+        )
     )
 
   def _validate_times_to_plot(
@@ -643,6 +683,7 @@ class ReachAndFrequency:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       selected_times: Sequence[str] | None = None,
       use_kpi: bool = False,
   ):
@@ -662,6 +703,7 @@ class ReachAndFrequency:
         selected_times=selected_times,
         use_kpi=self._use_kpi,
     )
+    self.client_config = client_config
 
   @property
   def optimal_frequency_data(self) -> xr.Dataset:
@@ -792,7 +834,9 @@ class ReachAndFrequency:
         dx=5,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_FAMILY,
+        font=self.client_config.get(
+            'html_reports.global.font_family', c.FONT_FAMILY
+        ),
         fontWeight='lighter',
     ).encode(
         text=alt.value(summary_text.OPTIMAL_FREQ_LABEL),
@@ -804,7 +848,9 @@ class ReachAndFrequency:
         dx=110,
         dy=-5,
         fontSize=c.AXIS_FONT_SIZE,
-        font=c.FONT_FAMILY,
+        font=self.client_config.get(
+            'html_reports.global.font_family', c.FONT_FAMILY
+        ),
         fontWeight='lighter',
     ).encode(
         text=alt.Text(f'{c.OPTIMAL_FREQUENCY}:Q', format='.2f'),
@@ -824,11 +870,20 @@ class ReachAndFrequency:
             title=formatter.custom_title_params(
                 summary_text.OPTIMAL_FREQUENCY_CHART_TITLE.format(
                     metric=summary_text.ROI_LABEL
-                )
+                ),
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             )
         )
         .resolve_scale(x=c.INDEPENDENT, y=c.INDEPENDENT)
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
     )
 
 
@@ -841,6 +896,7 @@ class MediaEffects:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       by_reach: bool = True,
       use_kpi: bool = False,
   ):
@@ -858,6 +914,7 @@ class MediaEffects:
     self._analyzer = analyzer.Analyzer(meridian)
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = client_config
 
   @functools.lru_cache(maxsize=128)
   def response_curves_data(
@@ -1002,7 +1059,7 @@ class MediaEffects:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
     else:
-      num_channels_displayed: int = c.CLIENT_CONFIG.get(
+      num_channels_displayed: int = self.client_config.get(
           'html_reports.model_results_summary.response-curves-chart.max_channels',
           7,
       )  # type: ignore
@@ -1095,8 +1152,19 @@ class MediaEffects:
       )
 
     return plot.properties(
-        title=formatter.custom_title_params(title)
-    ).configure_axis(**formatter.TEXT_CONFIG)
+        title=formatter.custom_title_params(
+            title,
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            ),
+        )
+    ).configure_axis(
+        **formatter.text_config(
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            )
+        )
+    )
 
   def plot_adstock_decay(
       self,
@@ -1173,10 +1241,19 @@ class MediaEffects:
         plot.facet(c.CHANNEL, columns=3)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.ADSTOCK_DECAY_CHART_TITLE
+                summary_text.ADSTOCK_DECAY_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             )
         )
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
         .resolve_scale(x=c.INDEPENDENT, y=c.INDEPENDENT)
     )
 
@@ -1319,10 +1396,19 @@ class MediaEffects:
         plot.facet(f'{c.CHANNEL}:N', columns=3)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.HILL_SATURATION_CHART_TITLE
+                summary_text.HILL_SATURATION_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             )
         )
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
         .configure_legend(labelLimit=0)
         .resolve_scale(x=c.INDEPENDENT, y=c.INDEPENDENT)
     )
@@ -1400,6 +1486,7 @@ class MediaSummary:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       selected_times: Sequence[str] | None = None,
       marginal_roi_by_reach: bool = True,
@@ -1433,6 +1520,7 @@ class MediaSummary:
     self._marginal_roi_by_reach = marginal_roi_by_reach
     self._non_media_baseline_values = non_media_baseline_values
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
+    self.client_config = client_config
 
   @property
   def paid_summary_metrics(self):
@@ -1746,7 +1834,9 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_FAMILY,
+                    labelFont=self.client_config.get(
+                        'html_reports.global.font_family', c.FONT_FAMILY
+                    ),
                     title=None,
                     orient='bottom',
                 ),
@@ -1762,10 +1852,20 @@ class MediaSummary:
         )
         .properties(
             title=formatter.custom_title_params(
-                summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_TITLE
+                summary_text.CHANNEL_CONTRIB_BY_TIME_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
         )
-        .configure_axis(titlePadding=c.PADDING_10, **formatter.TEXT_CONFIG)
+        .configure_axis(
+            titlePadding=c.PADDING_10,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
+        )
         .configure_view(strokeOpacity=0)
     )
     return plot
@@ -1860,7 +1960,9 @@ class MediaSummary:
                 f'{c.CHANNEL}:N',
                 legend=alt.Legend(
                     labelFontSize=c.AXIS_FONT_SIZE,
-                    labelFont=c.FONT_FAMILY,
+                    labelFont=self.client_config.get(
+                        'html_reports.global.font_family', c.FONT_FAMILY
+                    ),
                     title=None,
                     orient='bottom',
                 ),
@@ -1884,10 +1986,20 @@ class MediaSummary:
         )
         .properties(
             title=formatter.custom_title_params(
-                summary_text.CHANNEL_CONTRIB_RANK_CHART_TITLE
+                summary_text.CHANNEL_CONTRIB_RANK_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             )
         )
-        .configure_axis(titlePadding=c.PADDING_10, **formatter.TEXT_CONFIG)
+        .configure_axis(
+            titlePadding=c.PADDING_10,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
+        )
         .configure_view(strokeOpacity=0)
     )
 
@@ -1908,7 +2020,7 @@ class MediaSummary:
         axis=1,
     )
 
-    if c.CLIENT_CONFIG.get(
+    if self.client_config.get(
         'html_reports.model_results_summary.channel-drivers-chart.hide_abs_number',
         False,
     ):
@@ -1981,13 +2093,23 @@ class MediaSummary:
         (bar + text)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.CHANNEL_DRIVERS_CHART_TITLE
+                summary_text.CHANNEL_DRIVERS_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=c.VEGALITE_FACET_LARGE_WIDTH,
             height=c.BAR_SIZE * num_channels
             + c.BAR_SIZE * 2 * c.SCALED_PADDING,
         )
-        .configure_axis(titlePadding=c.PADDING_10, **formatter.TEXT_CONFIG)
+        .configure_axis(
+            titlePadding=c.PADDING_10,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
+        )
         .configure_view(strokeOpacity=0)
     )
 
@@ -2014,7 +2136,9 @@ class MediaSummary:
                 legendX=130,
                 legendY=320,
                 labelFontSize=c.AXIS_FONT_SIZE,
-                labelFont=c.FONT_FAMILY,
+                labelFont=self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
                 title=None,
             ),
         ),
@@ -2024,14 +2148,19 @@ class MediaSummary:
         radius=110,
         fill='white',
         size=c.TITLE_FONT_SIZE,
-        font=c.FONT_FAMILY,
+        font=self.client_config.get(
+            'html_reports.global.font_family', c.FONT_FAMILY
+        ),
     ).encode(text=alt.Text(f'{c.PCT_OF_CONTRIBUTION}:Q', format='.0%'))
     return (
         alt.layer(pie, text, data=outcome_df)
         .configure_view(stroke=None)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.CONTRIBUTION_CHART_TITLE
+                summary_text.CONTRIBUTION_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             )
         )
     )
@@ -2117,7 +2246,7 @@ class MediaSummary:
         )
     )
     elements.append(roi_text)
-    if c.CLIENT_CONFIG.get(
+    if self.client_config.get(
         'html_reports.model_results_summary.spend-outcome-chart.hide_roi_values',
         False,
     ):
@@ -2136,7 +2265,14 @@ class MediaSummary:
             ),
             spacing=-1,  # Combine the facets to appear as 1 unfaceted plot.
         )
-        .properties(title=formatter.custom_title_params(title))
+        .properties(
+            title=formatter.custom_title_params(
+                title,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
+            )
+        )
         .configure_header(
             title=None,
             labelOrient='bottom',
@@ -2144,7 +2280,14 @@ class MediaSummary:
             labelAlign='right',
             labelBaseline='middle',
         )
-        .configure_axis(titlePadding=c.PADDING_10, **formatter.TEXT_CONFIG)
+        .configure_axis(
+            titlePadding=c.PADDING_10,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
+        )
         .configure_view(strokeOpacity=0)  # Remove facet outlines.
     )
 
@@ -2318,7 +2461,11 @@ class MediaSummary:
         .configure_axis(
             gridDash=[3, 2],
             titlePadding=c.PADDING_10,
-            **formatter.TEXT_CONFIG,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
         )
     )
     if not disable_size:
@@ -2327,7 +2474,14 @@ class MediaSummary:
               c.SPEND, scale=alt.Scale(range=[100, 5000]), legend=None
           )
       )
-    return plot.properties(title=formatter.custom_title_params(title))
+    return plot.properties(
+        title=formatter.custom_title_params(
+            title,
+            self.client_config.get(
+                'html_reports.global.font_family', c.FONT_FAMILY
+            ),
+        )
+    )
 
   def _plot_metric_bar_chart(
       self, metric: str, metric_label: str, title: str, include_ci: bool = True
@@ -2394,8 +2548,22 @@ class MediaSummary:
 
     return (
         plot.configure_tick(bandSize=10, thickness=bar_width)
-        .properties(title=formatter.custom_title_params(title))
-        .configure_axis(titlePadding=c.PADDING_10, **formatter.TEXT_CONFIG)
+        .properties(
+            title=formatter.custom_title_params(
+                title,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
+            )
+        )
+        .configure_axis(
+            titlePadding=c.PADDING_10,
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            ),
+        )
     )
 
   def _transform_media_metrics_for_roi_bubble_plot(
@@ -2760,7 +2928,9 @@ class MediaSummary:
         radius=125,
         fill='white',
         size=14,
-        font=c.FONT_FAMILY,
+        font=self.client_config.get(
+            'html_reports.global.font_family', c.FONT_FAMILY
+        ),
     ).encode(text=alt.Text(f'{"pct_of_total_spend"}:Q', format='.0%'))
 
     return (
@@ -2768,7 +2938,10 @@ class MediaSummary:
         .configure_view(stroke=None)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.SPEND_COMPARISON_CHART_TITLE
+                summary_text.SPEND_COMPARISON_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=c.VEGALITE_FACET_DEFAULT_WIDTH,
         )
@@ -2806,7 +2979,9 @@ class MediaSummary:
         radius=125,
         fill='white',
         size=14,
-        font=c.FONT_FAMILY,
+        font=self.client_config.get(
+            'html_reports.global.font_family', c.FONT_FAMILY
+        ),
     ).encode(text=alt.Text(f'{"pct_of_total_contribution"}:Q', format='.0%'))
 
     return (
@@ -2814,7 +2989,10 @@ class MediaSummary:
         .configure_view(stroke=None)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.CONTRIBUTION_COMPARISON_CHART_TITLE
+                summary_text.CONTRIBUTION_COMPARISON_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=c.VEGALITE_FACET_DEFAULT_WIDTH,
         )
