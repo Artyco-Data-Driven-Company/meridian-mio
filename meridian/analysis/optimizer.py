@@ -27,9 +27,9 @@ import jinja2
 from meridian import backend
 from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
+from meridian.analysis import ClientConfig
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
-from meridian.analysis import CustomizeCharts
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import numpy as np
@@ -493,6 +493,7 @@ class OptimizationResults:
   analyzer: analyzer_module.Analyzer
   spend_ratio: np.ndarray  # spend / historical spend
   spend_bounds: tuple[np.ndarray, np.ndarray]
+  client_config: ClientConfig
 
   # The optimized budget allocation datasets. See: each @property pydocs below.
   _nonoptimized_data: xr.Dataset
@@ -501,7 +502,7 @@ class OptimizationResults:
   _optimization_grid: OptimizationGrid
 
   # CustomizeCharts instance for applying visual overrides to Altair charts.
-  customize_charts: CustomizeCharts = CustomizeCharts()
+  customize_charts: formatter.CustomizeCharts = formatter.CustomizeCharts()
 
   # The optional `DataTensors` container to use if optimization was performed
   # on data different from the original `input_data`.
@@ -596,7 +597,7 @@ class OptimizationResults:
     # Export chart JSON key comparison for debugging/inspection purposes.
     export_path = os.path.join(filepath, 'export_charts')
     os.makedirs(export_path, exist_ok=True)
-    if c.CLIENT_CONFIG.get('export_charts_json', False):
+    if self.client_config.get('export_charts_json', False):
       self.customize_charts.export_chart_json(
           os.path.join(
               export_path, 'json_charts_' + filename.replace('.html', '.json')
@@ -715,13 +716,22 @@ class OptimizationResults:
         (bar + text)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.OUTCOME_DELTA_CHART_TITLE.format(outcome=outcome)
+                summary_text.OUTCOME_DELTA_CHART_TITLE.format(outcome=outcome),
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=(c.BAR_SIZE + c.PADDING_20) * len(df)
             + c.BAR_SIZE * 2 * c.SCALED_PADDING,
             height=400,
         )
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
         .configure_view(strokeOpacity=0)
     )
 
@@ -752,7 +762,10 @@ class OptimizationResults:
         .configure_view(stroke=None)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.SPEND_ALLOCATION_CHART_TITLE
+                summary_text.SPEND_ALLOCATION_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=c.VEGALITE_FACET_DEFAULT_WIDTH,
         )
@@ -811,12 +824,21 @@ class OptimizationResults:
         .configure_view(stroke=None)
         .properties(
             title=formatter.custom_title_params(
-                summary_text.SPEND_DELTA_CHART_TITLE
+                summary_text.SPEND_DELTA_CHART_TITLE,
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                ),
             ),
             width=formatter.bar_chart_width(len(df) + 2),
             height=400,
         )
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
     )
 
   def plot_response_curves(
@@ -903,7 +925,13 @@ class OptimizationResults:
             columns=3,
         )
         .resolve_scale(y='independent', x='independent')
-        .configure_axis(**formatter.TEXT_CONFIG)
+        .configure_axis(
+            **formatter.text_config(
+                self.client_config.get(
+                    'html_reports.global.font_family', c.FONT_FAMILY
+                )
+            )
+        )
     )
 
   def _get_top_channels_by_spend(self, n_channels: int) -> Sequence[str]:
@@ -1094,8 +1122,12 @@ class OptimizationResults:
     self.template_env.globals[c.SELECTED_GEOS] = (
         self.optimization_grid.selected_geos
     )
-    self.template_env.globals['font_family'] = c.FONT_FAMILY
-    self.template_env.globals['font_link'] = c.FONT_LINK
+    self.template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.global.font_family', c.FONT_FAMILY
+    )
+    self.template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.global.font_link', c.FONT_LINK
+    )
 
     html_template = self.template_env.get_template('summary.html.jinja')
     return html_template.render(
@@ -1260,7 +1292,7 @@ class OptimizationResults:
             description=summary_text.SPEND_DELTA_CHART_INSIGHTS,
             chart_json=self.plot_spend_delta(currency).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.optimization_summary.spend-delta-chart'
         ),
     )
@@ -1270,7 +1302,7 @@ class OptimizationResults:
             id=summary_text.SPEND_ALLOCATION_CHART_ID,
             chart_json=self.plot_budget_allocation().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.optimization_summary.spend-allocation-chart'
         ),
     )
@@ -1282,7 +1314,7 @@ class OptimizationResults:
             ),
             chart_json=self.plot_incremental_outcome_delta().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.optimization_summary.outcome-delta-chart'
         ),
     )
@@ -1335,7 +1367,7 @@ class OptimizationResults:
         id=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_ID,
         title=summary_text.OPTIMIZED_RESPONSE_CURVES_CARD_TITLE,
     )
-    n_channels = c.CLIENT_CONFIG.get(
+    n_channels = self.client_config.get(
         'html_reports.optimization_summary.optimized-response-curves-chart.max_channels',
         6,
     )
@@ -1349,7 +1381,7 @@ class OptimizationResults:
                 n_top_channels=n_channels
             ).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.optimization_summary.optimized-response-curves-chart'
         ),
     )
@@ -1371,9 +1403,10 @@ class BudgetOptimizer:
   results can be viewed as plots and as an HTML summary output page.
   """
 
-  def __init__(self, meridian: model.Meridian):
+  def __init__(self, meridian: model.Meridian, client_config: ClientConfig):
     self._meridian = meridian
     self._analyzer = analyzer_module.Analyzer(self._meridian)
+    self.client_config = client_config
 
   def _validate_model_fit(self, use_posterior: bool):
     """Validates that the model is fit."""
@@ -1710,6 +1743,7 @@ class BudgetOptimizer:
         _nonoptimized_data_with_optimal_freq=nonoptimized_data_with_optimal_freq,
         _optimized_data=optimized_data,
         _optimization_grid=optimization_grid,
+        client_config=self.client_config,
     )
 
   def create_optimization_tensors(

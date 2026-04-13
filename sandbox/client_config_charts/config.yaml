@@ -34,20 +34,15 @@ html_reports:
     channel-contrib-rank-chart:
       pass: true
     roi-effectiveness-chart:
-      pass: true
       encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
     roi-marginal-chart:
-      pass: true
       encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
     roi-channel-chart:
-      pass: true
       layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
     cpik-channel-chart:
-      pass: true
       layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
     response-curves-chart:
       max_channels: 6
-      pass: true
       layer: [ { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } } ]
 
   comparison_metrics_summary:

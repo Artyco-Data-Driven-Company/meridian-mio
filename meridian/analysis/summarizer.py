@@ -23,10 +23,10 @@ import os
 import jinja2
 from meridian import constants as c
 from meridian.analysis import analyzer
+from meridian.analysis import ClientConfig
 from meridian.analysis import formatter
 from meridian.analysis import summary_text
 from meridian.analysis import visualizer
-from meridian.analysis import CustomizeCharts
 from meridian.data import time_coordinates as tc
 from meridian.model import model
 import pandas as pd
@@ -72,20 +72,26 @@ class Summarizer:
   def __init__(
       self,
       meridian: model.Meridian,
+      client_config: ClientConfig,
       use_kpi: bool = False,
   ):
     """Initialize the visualizer classes that are not time-dependent."""
     self._meridian = meridian
     self._use_kpi = analyzer.Analyzer(meridian)._use_kpi(use_kpi)
-    self.customize_charts = CustomizeCharts()
+    self.customize_charts = formatter.CustomizeCharts()
+    self.client_config = client_config
 
   @functools.cached_property
   def _model_fit(self):
-    return visualizer.ModelFit(self._meridian, use_kpi=self._use_kpi)
+    return visualizer.ModelFit(
+        self._meridian, use_kpi=self._use_kpi, client_config=self.client_config
+    )
 
   @functools.cached_property
   def _model_diagnostics(self):
-    return visualizer.ModelDiagnostics(self._meridian, use_kpi=self._use_kpi)
+    return visualizer.ModelDiagnostics(
+        self._meridian, use_kpi=self._use_kpi, client_config=self.client_config
+    )
 
   def output_comparison_metrics_summary(
       self,
@@ -125,7 +131,7 @@ class Summarizer:
     # Export chart JSON key comparison for debugging/inspection purposes.
     export_path = os.path.join(filepath, 'export_charts')
     os.makedirs(export_path, exist_ok=True)
-    if c.CLIENT_CONFIG.get('export_charts_json', False):
+    if self.client_config.get('export_charts_json', False):
       self.customize_charts.export_chart_json(
           os.path.join(
               export_path, 'json_charts_' + filename.replace('.html', '.json')
@@ -206,8 +212,12 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
-    template_env.globals['font_family'] = c.FONT_FAMILY
-    template_env.globals['font_link'] = c.FONT_LINK
+    template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.global.font_family', c.FONT_FAMILY
+    )
+    template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.global.font_link', c.FONT_LINK
+    )
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_cm_htmls(
@@ -231,12 +241,14 @@ class Summarizer:
         self._meridian,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
+        client_config=self.client_config,
     )
 
     media_summary_cm = visualizer.MediaSummary(
         self._meridian,
         selected_times=cm_selected_times,
         use_kpi=self._use_kpi,
+        client_config=self.client_config,
     )
     cards = [
         self._create_comparison_metrics_card_html(
@@ -271,7 +283,7 @@ class Summarizer:
     # Export chart JSON key comparison for debugging/inspection purposes.
     export_path = os.path.join(filepath, 'export_charts')
     os.makedirs(export_path, exist_ok=True)
-    if c.CLIENT_CONFIG.get('export_charts_json', False):
+    if self.client_config.get('export_charts_json', False):
       self.customize_charts.export_chart_json(
           os.path.join(
               export_path, 'json_charts_' + filename.replace('.html', '.json')
@@ -329,8 +341,12 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
-    template_env.globals['font_family'] = c.FONT_FAMILY
-    template_env.globals['font_link'] = c.FONT_LINK
+    template_env.globals['font_family'] = self.client_config.get(
+        'html_reports.global.font_family', c.FONT_FAMILY
+    )
+    template_env.globals['font_link'] = self.client_config.get(
+        'html_reports.global.font_link', c.FONT_LINK
+    )
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_htmls(
@@ -352,13 +368,17 @@ class Summarizer:
         self._meridian,
         selected_times=selected_times,
         use_kpi=self._use_kpi,
+        client_config=self.client_config,
     )
     media_effects = visualizer.MediaEffects(
-        self._meridian, use_kpi=self._use_kpi
+        self._meridian, use_kpi=self._use_kpi, client_config=self.client_config
     )
     reach_frequency = (
         visualizer.ReachAndFrequency(
-            self._meridian, selected_times=selected_times, use_kpi=self._use_kpi
+            self._meridian,
+            selected_times=selected_times,
+            use_kpi=self._use_kpi,
+            client_config=self.client_config,
         )
         if self._meridian.n_rf_channels > 0
         else None
@@ -400,7 +420,7 @@ class Summarizer:
             ),
             chart_json=model_fit.plot_model_fit(**kwargs).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.expected-actual-outcome-chart'
         ),
     )
@@ -505,7 +525,7 @@ class Summarizer:
                 time_granularity=time_granularity
             ).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.channel-contrib-by-time-chart'
         ),
     )
@@ -520,7 +540,7 @@ class Summarizer:
                 time_granularity=time_granularity
             ).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.channel-contrib-rank-chart'
         ),
     )
@@ -532,7 +552,7 @@ class Summarizer:
             ),
             chart_json=media_summary.plot_contribution_waterfall_chart().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.channel-drivers-chart'
         ),
     )
@@ -549,7 +569,7 @@ class Summarizer:
             ),
             chart_json=media_summary.plot_spend_vs_contribution().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.spend-outcome-chart'
         ),
     )
@@ -561,7 +581,7 @@ class Summarizer:
             ),
             chart_json=media_summary.plot_contribution_pie_chart().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.outcome-contribution-chart'
         ),
     )
@@ -626,7 +646,7 @@ class Summarizer:
             description=summary_text.ROI_EFFECTIVENESS_CHART_DESCRIPTION,
             chart_json=media_summary.plot_roi_vs_effectiveness().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-effectiveness-chart'
         ),
     )
@@ -636,7 +656,7 @@ class Summarizer:
             description=summary_text.ROI_MARGINAL_CHART_DESCRIPTION,
             chart_json=media_summary.plot_roi_vs_mroi().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-marginal-chart'
         ),
     )
@@ -645,7 +665,7 @@ class Summarizer:
             id=summary_text.ROI_CHANNEL_CHART_ID,
             chart_json=media_summary.plot_roi_bar_chart().to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-channel-chart'
         ),
     )
@@ -655,7 +675,7 @@ class Summarizer:
             chart_json=media_summary.plot_cpik().to_json(),
             description=summary_text.CPIK_CHANNEL_CHART_DESCRIPTION,
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.cpik-channel-chart'
         ),
     )
@@ -718,7 +738,7 @@ class Summarizer:
                     num_channels_displayed=7,
                 ).to_json(),
             ),
-            chart_overrides=c.CLIENT_CONFIG.get(
+            chart_overrides=self.client_config.get(
                 'html_reports.model_results_summary.response-curves-chart'
             ),
         )
@@ -752,7 +772,7 @@ class Summarizer:
                       selected_channels=[channel_name],
                   ).to_json(),
               ),
-              chart_overrides=c.CLIENT_CONFIG.get(
+              chart_overrides=self.client_config.get(
                   'html_reports.model_results_summary.optimal-frequency-chart'
               ),
           )
@@ -1004,7 +1024,7 @@ class Summarizer:
     spend_df['channel'] = spend_df['channel'].replace('All Channels', 'Total')
 
     # Create 'Digital' row
-    digital_channels = c.CLIENT_CONFIG.get(
+    digital_channels = self.client_config.get(
         'html_reports.comparison_metrics_summary.digital_channels', None
     )
     if digital_channels is not None:
@@ -1382,7 +1402,7 @@ class Summarizer:
                 spend_df
             ).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.comparison_metrics_summary.spend-comparison-pie-chart'
         ),
     )
@@ -1424,7 +1444,7 @@ class Summarizer:
                 contribution_df
             ).to_json(),
         ),
-        chart_overrides=c.CLIENT_CONFIG.get(
+        chart_overrides=self.client_config.get(
             'html_reports.comparison_metrics_summary.contribution-comparison-pie-chart'
         ),
     )
