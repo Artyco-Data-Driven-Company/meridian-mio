@@ -232,7 +232,7 @@ class OptimizationGrid:
       spend_constraint_lower = spend_constraint_default
     if spend_constraint_upper is None:
       spend_constraint_upper = spend_constraint_default
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=len(self.channels),
             spend=spend,
@@ -250,7 +250,7 @@ class OptimizationGrid:
           ' It is only a problem when you use a much smaller budget, '
           ' for which the intended step size is smaller. '
       )
-    (spend_grid, incremental_outcome_grid) = self.trim_grids(
+    spend_grid, incremental_outcome_grid = self.trim_grids(
         spend_bound_lower=optimization_lower_bound,
         spend_bound_upper=optimization_upper_bound,
     )
@@ -591,7 +591,9 @@ class OptimizationResults:
     with open(os.path.join(filepath, filename), 'w') as f:
       f.write(self._gen_optimization_summary(currency))
 
-  def plot_incremental_outcome_delta(self, df_dict: dict = {}, custom_d_e: tuple = ()) -> alt.Chart:
+  def plot_incremental_outcome_delta(
+      self, df_dict: dict = {}, custom_d_e: tuple = ()
+  ) -> alt.Chart:
     """Plots a waterfall chart showing the change in incremental outcome."""
     outcome = self._kpi_or_revenue
     if outcome == c.REVENUE:
@@ -600,7 +602,9 @@ class OptimizationResults:
       y_axis_label = summary_text.INC_KPI_LABEL
 
     if df_dict:
-      df = pd.DataFrame(df_dict.items(), columns=["channel", "incremental_outcome"])
+      df = pd.DataFrame(
+          df_dict.items(), columns=['channel', 'incremental_outcome']
+      )
       df.index = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8]
     else:
       df = self._transform_outcome_delta_data()
@@ -671,7 +675,9 @@ class OptimizationResults:
       domain_scale = [np.float64(custom_d_e[0]), np.float64(custom_d_e[1])]
     else:
       domain_scale = [
-          self.nonoptimized_data.total_incremental_outcome + sum_decr - y_padding,
+          self.nonoptimized_data.total_incremental_outcome
+          + sum_decr
+          - y_padding,
           self.optimized_data.total_incremental_outcome + y_padding,
       ]
 
@@ -697,7 +703,11 @@ class OptimizationResults:
     )
 
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, font=c.FONT_SPACE_GROTESK, color=c.GREY_800
+        baseline='top',
+        dy=-20,
+        fontSize=c.AXIS_FONT_SIZE,
+        font=c.FONT_SPACE_GROTESK,
+        color=c.GREY_800,
     ).encode(
         text=alt.Text('calc_amount:N'),
         y='text_y:Q',
@@ -750,9 +760,14 @@ class OptimizationResults:
         )
     )
 
-  def plot_spend_delta(self, currency: str = c.DEFAULT_CURRENCY) -> alt.Chart:
+  def plot_spend_delta(
+      self, currency: str = c.DEFAULT_CURRENCY, df_dict: dict = {}
+  ) -> alt.Chart:
     """Plots a bar chart showing the optimized change in spend per channel."""
-    df = self._get_delta_data(c.SPEND)
+    if df_dict:
+      df = pd.DataFrame(df_dict.items(), columns=['channel', 'spend'])
+    else:
+      df = self._get_delta_data(c.SPEND)
     base = (
         alt.Chart(df)
         .transform_calculate(
@@ -792,7 +807,11 @@ class OptimizationResults:
     )
 
     text = base.mark_text(
-        baseline='top', dy=-20, fontSize=c.AXIS_FONT_SIZE, font=c.FONT_SPACE_GROTESK, color=c.GREY_800
+        baseline='top',
+        dy=-20,
+        fontSize=c.AXIS_FONT_SIZE,
+        font=c.FONT_SPACE_GROTESK,
+        color=c.GREY_800,
     ).encode(
         text=alt.Text('text_value:N'),
         y='text_y:Q',
@@ -987,11 +1006,13 @@ class OptimizationResults:
         if len(ubounds) == 1
         else ubounds * self.spend_ratio
     )
-    spend_constraints_df = pd.DataFrame({
-        c.CHANNEL: channels,
-        c.LOWER_BOUND: lower_bound,
-        c.UPPER_BOUND: upper_bound,
-    })
+    spend_constraints_df = pd.DataFrame(
+        {
+            c.CHANNEL: channels,
+            c.LOWER_BOUND: lower_bound,
+            c.UPPER_BOUND: upper_bound,
+        }
+    )
 
     response_curves_ds = self.get_response_curves()
     response_curves_df = (
@@ -1045,7 +1066,9 @@ class OptimizationResults:
     else:
       return merged_df
 
-  def _get_delta_data(self, metric: str, metric_int: str | None = None) -> pd.DataFrame:
+  def _get_delta_data(
+      self, metric: str, metric_int: str | None = None
+  ) -> pd.DataFrame:
     """Calculates and sorts the optimized delta for the specified metric."""
     delta = self.optimized_data[metric] - self.nonoptimized_data[metric]
 
@@ -1057,7 +1080,9 @@ class OptimizationResults:
       # 2. Filtrar por mean si es incremental outcome
       if metric == 'incremental_outcome':
         df_opt = df_opt[df_opt['metric'] == c.MEAN][['channel', metric]]
-        df_nonopt = df_nonopt[df_nonopt['metric'] == c.MEAN][['channel', metric]]
+        df_nonopt = df_nonopt[df_nonopt['metric'] == c.MEAN][
+            ['channel', metric]
+        ]
 
       if metric_int == 'nonopt':
         return df_nonopt
@@ -1068,10 +1093,12 @@ class OptimizationResults:
     if c.METRIC in delta.dims:
       delta = delta.sel(metric=c.MEAN, drop=True)
     df = delta.to_dataframe().reset_index()
-    return pd.concat([
-        df[df[metric] < 0].sort_values([metric]),
-        df[df[metric] >= 0].sort_values([metric], ascending=False),
-    ]).reset_index(drop=True)
+    return pd.concat(
+        [
+            df[df[metric] < 0].sort_values([metric]),
+            df[df[metric] >= 0].sort_values([metric], ascending=False),
+        ]
+    ).reset_index(drop=True)
 
   def _transform_outcome_delta_data(self) -> pd.DataFrame:
     """Calculates the incremental outcome delta after optimization."""
@@ -1928,7 +1955,7 @@ class BudgetOptimizer:
         pct_of_spend=pct_of_spend,
     )
     spend = budget * valid_pct_of_spend
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=n_channels,
             spend=spend,
@@ -2100,7 +2127,7 @@ class BudgetOptimizer:
     )
     spend = budget * valid_pct_of_spend
     round_factor = get_round_factor(budget, gtol)
-    (optimization_lower_bound, optimization_upper_bound) = (
+    optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=n_paid_channels,
             spend=spend,
@@ -2129,7 +2156,7 @@ class BudgetOptimizer:
       optimal_frequency = None
 
     step_size = 10 ** (-round_factor)
-    (spend_grid, incremental_outcome_grid) = self._create_grids(
+    spend_grid, incremental_outcome_grid = self._create_grids(
         spend=hist_spend,
         spend_bound_lower=optimization_lower_bound,
         spend_bound_upper=optimization_upper_bound,
@@ -2310,13 +2337,11 @@ class BudgetOptimizer:
     )
     spend_tensor = backend.to_tensor(spend, dtype=backend.float32)
     hist_spend = backend.to_tensor(hist_spend, dtype=backend.float32)
-    (new_media, new_reach, new_frequency) = (
-        self._get_incremental_outcome_tensors(
-            hist_spend,
-            spend_tensor,
-            new_data=filled_data.filter_fields(c.PAID_CHANNELS),
-            optimal_frequency=optimal_frequency,
-        )
+    new_media, new_reach, new_frequency = self._get_incremental_outcome_tensors(
+        hist_spend,
+        spend_tensor,
+        new_data=filled_data.filter_fields(c.PAID_CHANNELS),
+        optimal_frequency=optimal_frequency,
     )
     budget = np.sum(spend_tensor)
     inc_outcome_data = analyzer_module.DataTensors(
@@ -2946,7 +2971,7 @@ def _get_spend_bounds(
     spend_bounds: tuple of np.ndarray of size `n_total_channels` containing
       the untreated lower and upper bound spend for each media and RF channel.
   """
-  (spend_const_lower, spend_const_upper) = _validate_spend_constraints(
+  spend_const_lower, spend_const_upper = _validate_spend_constraints(
       n_channels,
       spend_constraint_lower,
       spend_constraint_upper,
