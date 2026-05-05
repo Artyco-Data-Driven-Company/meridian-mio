@@ -218,12 +218,25 @@ class OptimizationGrid:
         else None
     )
     budget = total_budget or np.sum(self.historical_spend)
-    valid_pct_of_spend = _validate_pct_of_spend(
-        n_channels=len(self.channels),
-        hist_spend=self.historical_spend,
-        pct_of_spend=pct_of_spend,
-    )
-    spend = budget * valid_pct_of_spend
+
+    if total_budget:
+      spend = _calculate_spend(
+          new_budget=total_budget,
+          hist_spend=self.historical_spend,
+          spend_constraint_lower=spend_constraint_lower,
+          spend_constraint_upper=spend_constraint_upper
+      )
+      print("ENTER IF BRANCH")
+    else:
+      valid_pct_of_spend = _validate_pct_of_spend(
+          n_channels=len(self.channels),
+          hist_spend=self.historical_spend,
+          pct_of_spend=pct_of_spend,
+      )
+      spend = budget * valid_pct_of_spend
+      print("ENTER ELSE BRANCH")
+
+
     spend_constraint_default = (
         c.SPEND_CONSTRAINT_DEFAULT_FIXED_BUDGET
         if isinstance(scenario, FixedBudgetScenario)
@@ -1427,6 +1440,7 @@ class BudgetOptimizer:
       end_date: tc.Date = None,
       fixed_budget: bool = True,
       budget: float | None = None,
+      use_historical_budget: bool = True,
       pct_of_spend: Sequence[float] | None = None,
       spend_constraint_lower: _SpendConstraint | None = None,
       spend_constraint_upper: _SpendConstraint | None = None,
@@ -1616,7 +1630,7 @@ class BudgetOptimizer:
         selected_geos=selected_geos,
         start_date=start_date,
         end_date=end_date,
-        budget=budget,
+        new_budget=budget,
         pct_of_spend=pct_of_spend,
         spend_constraint_lower=spend_constraint_lower,
         spend_constraint_upper=spend_constraint_upper,
@@ -1631,7 +1645,7 @@ class BudgetOptimizer:
           selected_geos=selected_geos,
           start_date=start_date,
           end_date=end_date,
-          budget=budget,
+          new_budget=budget,
           pct_of_spend=pct_of_spend,
           spend_constraint_lower=spend_constraint_lower,
           spend_constraint_upper=spend_constraint_upper,
@@ -1659,9 +1673,6 @@ class BudgetOptimizer:
         spend_constraint_upper=spend_constraint_upper,
     )
 
-    use_historical_budget = budget is None or np.isclose(
-        budget, np.sum(optimization_grid.historical_spend)
-    )
     new_data = new_data or analyzer_module.DataTensors()
     nonoptimized_data = self._create_budget_dataset(
         new_data=new_data.filter_fields(c.PAID_DATA + (c.TIME,)),
@@ -1888,7 +1899,7 @@ class BudgetOptimizer:
       selected_geos: Sequence[str] | None,
       start_date: tc.Date,
       end_date: tc.Date,
-      budget: float | None,
+      new_budget: float | None,
       pct_of_spend: Sequence[float] | None,
       spend_constraint_lower: _SpendConstraint,
       spend_constraint_upper: _SpendConstraint,
@@ -1979,13 +1990,24 @@ class BudgetOptimizer:
         include_media=self._meridian.n_media_channels > 0,
         include_rf=self._meridian.n_rf_channels > 0,
     ).data
-    budget = budget or np.sum(hist_spend)
-    valid_pct_of_spend = _validate_pct_of_spend(
-        n_channels=n_channels,
-        hist_spend=hist_spend,
-        pct_of_spend=pct_of_spend,
-    )
-    spend = budget * valid_pct_of_spend
+
+    budget = new_budget or np.sum(hist_spend)
+
+    if new_budget:
+        spend = _calculate_spend(
+            new_budget=new_budget,
+            hist_spend=hist_spend,
+            spend_constraint_lower=spend_constraint_lower,
+            spend_constraint_upper=spend_constraint_upper
+        )
+    else:
+      valid_pct_of_spend = _validate_pct_of_spend(
+          n_channels=n_channels,
+          hist_spend=hist_spend,
+          pct_of_spend=pct_of_spend,
+      )
+      spend = budget * valid_pct_of_spend
+
     optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
             n_channels=n_channels,
@@ -2019,6 +2041,9 @@ class BudgetOptimizer:
 
     return True
 
+
+
+
   def create_optimization_grid(
       self,
       new_data: xr.Dataset | None = None,
@@ -2028,7 +2053,7 @@ class BudgetOptimizer:
       selected_times: tuple[str | None, str | None] | None = None,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
-      budget: float | None = None,
+      new_budget: float | None = None,
       pct_of_spend: Sequence[float] | None = None,
       spend_constraint_lower: _SpendConstraint = c.SPEND_CONSTRAINT_DEFAULT,
       spend_constraint_upper: _SpendConstraint = c.SPEND_CONSTRAINT_DEFAULT,
@@ -2071,7 +2096,7 @@ class BudgetOptimizer:
         format. Default is `None`, i.e. the first time period.
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
         Default is `None`, i.e. the last time period.
-      budget: Number indicating the total budget for the fixed budget scenario.
+      new_budget: Number indicating the total budget for the fixed budget scenario.
         Defaults to the historical budget.
       pct_of_spend: Numeric list of size `n_paid_channels` containing the
         percentage allocation for spend for all media and RF channels. The order
@@ -2150,13 +2175,23 @@ class BudgetOptimizer:
         include_rf=self._meridian.n_rf_channels > 0,
     ).data
     n_paid_channels = len(self._meridian.input_data.get_all_paid_channels())
-    budget = budget or np.sum(hist_spend)
-    valid_pct_of_spend = _validate_pct_of_spend(
-        n_channels=n_paid_channels,
-        hist_spend=hist_spend,
-        pct_of_spend=pct_of_spend,
-    )
-    spend = budget * valid_pct_of_spend
+    budget = new_budget or np.sum(hist_spend)
+
+    if new_budget:
+        spend = _calculate_spend(
+            new_budget=new_budget,
+            hist_spend=hist_spend,
+            spend_constraint_lower=spend_constraint_lower,
+            spend_constraint_upper=spend_constraint_upper
+        )
+    else:
+      valid_pct_of_spend = _validate_pct_of_spend(
+          n_channels=n_paid_channels,
+          hist_spend=hist_spend,
+          pct_of_spend=pct_of_spend,
+      )
+      spend = budget * valid_pct_of_spend
+
     round_factor = get_round_factor(budget, gtol)
     optimization_lower_bound, optimization_upper_bound = (
         get_optimization_bounds(
@@ -2940,6 +2975,134 @@ def _validate_pct_of_spend(
     return np.array(pct_of_spend)
   else:
     return hist_spend / np.sum(hist_spend)
+
+
+def _calculate_spend(
+    new_budget: float,
+    hist_spend: Sequence[float],
+    spend_constraint_lower: Sequence[float],
+    spend_constraint_upper: Sequence[float],
+) -> np.ndarray:
+    """Calculates a feasible spend allocation given a target budget and constraints.
+
+    This function computes a per-channel spend vector that:
+      1. Starts from historical spend levels.
+      2. Respects lower and upper spend constraints per channel.
+      3. Adjusts the total spend to match the provided `new_budget`.
+
+    The adjustment is performed by redistributing the difference between the
+    historical total spend and the target `new_budget`, while ensuring that no
+    channel violates its allowed bounds.
+
+    Constraint interpretation:
+      - `spend_constraint_lower` and `spend_constraint_upper` are expressed as
+        fractions in the range [0, 1].
+      - They define absolute bounds relative to historical spend:
+
+        min_spend = hist_spend * (1 - lower)
+        max_spend = hist_spend * (1 + upper)
+
+      Examples:
+        - lower = 0.5 → channel cannot go below 50% of historical spend.
+        - upper = 1.0 → channel cannot exceed historical spend.
+        - upper = 0.0 → channel must be zeroed out.
+
+    Behavior:
+      - If `new_budget` > historical total spend:
+          Only channels with available headroom (`< max_spend`) are increased.
+      - If `new_budget` < historical total spend:
+          Only channels above their minimum (`> min_spend`) are decreased.
+      - Redistribution is proportional to the available adjustment capacity
+        of each channel.
+
+    Feasibility:
+      - If `new_budget` is outside the feasible range defined by constraints:
+          sum(min_spend) <= new_budget <= sum(max_spend)
+        a ValueError is raised.
+
+    Args:
+      new_budget: Target total spend after optimization.
+      hist_spend: Historical spend per channel.
+      valid_pct_of_spend: Historical spend proportions per channel.
+        This parameter is currently unused in the allocation logic but is kept
+        for API compatibility and potential future weighting strategies.
+      spend_constraint_lower: Minimum allowed spend as a fraction of historical
+        spend for each channel.
+      spend_constraint_upper: Maximum allowed spend as a fraction of historical
+        spend for each channel.
+
+    Returns:
+      A numpy array with the optimized spend allocation per channel. The sum of
+      the returned values equals `new_budget` (within numerical tolerance), and all
+      constraints are satisfied.
+
+    Raises:
+      ValueError: If the target `new_budget` is not achievable given the constraints.
+    """
+    hist_spend = np.array(hist_spend, dtype=float)
+    lower = np.array(spend_constraint_lower, dtype=float)
+    upper = np.array(spend_constraint_upper, dtype=float)
+
+    # --- Compute bounds ---
+    min_spend = hist_spend * (1 - lower)
+    max_spend = hist_spend * (1 + upper)
+
+    total_min = min_spend.sum()
+    total_max = max_spend.sum()
+
+    # --- Feasibility checks ---
+    if new_budget < total_min:
+        raise ValueError(
+            f"New budget ({new_budget}) is lower than minimum feasible spend ({total_min})."
+        )
+
+    if new_budget > total_max:
+        raise ValueError(
+            f"New budget ({new_budget}) is higher than maximum feasible spend ({total_max})."
+        )
+
+    # --- Initialize ---
+    spend = hist_spend.copy()
+    current_total = spend.sum()
+    delta = new_budget - current_total
+
+    # --- Increase spend ---
+    if delta > 0:
+        while delta > 1e-6:
+            capacity = np.maximum(max_spend - spend, 0)
+            total_capacity = capacity.sum()
+
+            if total_capacity <= 0:
+                break
+
+            increment = np.minimum(
+                capacity,
+                delta * (capacity / total_capacity),
+            )
+
+            spend += increment
+            delta -= increment.sum()
+
+    # --- Decrease spend ---
+    elif delta < 0:
+        delta = abs(delta)
+
+        while delta > 1e-6:
+            capacity = np.maximum(spend - min_spend, 0)
+            total_capacity = capacity.sum()
+
+            if total_capacity <= 0:
+                break
+
+            decrement = np.minimum(
+                capacity,
+                delta * (capacity / total_capacity),
+            )
+
+            spend -= decrement
+            delta -= decrement.sum()
+
+    return spend
 
 
 def _validate_spend_constraints(
