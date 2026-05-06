@@ -175,6 +175,7 @@ class OptimizationGrid:
       pct_of_spend: Sequence[float] | None = None,
       spend_constraint_lower: _SpendConstraint | None = None,
       spend_constraint_upper: _SpendConstraint | None = None,
+      use_historical_budget: bool = True
   ) -> xr.Dataset:
     """Finds the optimal budget allocation that maximizes outcome.
 
@@ -226,7 +227,6 @@ class OptimizationGrid:
           spend_constraint_lower=spend_constraint_lower,
           spend_constraint_upper=spend_constraint_upper
       )
-      print("ENTER IF BRANCH")
     else:
       valid_pct_of_spend = _validate_pct_of_spend(
           n_channels=len(self.channels),
@@ -234,7 +234,6 @@ class OptimizationGrid:
           pct_of_spend=pct_of_spend,
       )
       spend = budget * valid_pct_of_spend
-      print("ENTER ELSE BRANCH")
 
 
     spend_constraint_default = (
@@ -268,11 +267,33 @@ class OptimizationGrid:
         spend_bound_lower=optimization_lower_bound,
         spend_bound_upper=optimization_upper_bound,
     )
-    rounded_spend = np.round(spend, self.round_factor).astype(int)
-    if isinstance(scenario, FixedBudgetScenario):
-      scenario = dataclasses.replace(
-          scenario, total_budget=np.sum(rounded_spend)
+
+    if total_budget and use_historical_budget:
+      rounded_spend = np.round(self.historical_spend, self.round_factor).astype(int)
+      if isinstance(scenario, FixedBudgetScenario):
+        scenario = dataclasses.replace(
+            scenario, total_budget=total_budget
+        )
+
+    elif total_budget and not use_historical_budget:
+      valid_pct_of_spend = _validate_pct_of_spend(
+          n_channels=len(self.channels),
+          hist_spend=self.historical_spend,
+          pct_of_spend=pct_of_spend,
       )
+      spend = total_budget * valid_pct_of_spend
+      rounded_spend = np.round(spend, self.round_factor).astype(int)
+      if isinstance(scenario, FixedBudgetScenario):
+        scenario = dataclasses.replace(
+            scenario, total_budget=np.sum(rounded_spend)
+        )
+    else:
+      rounded_spend = np.round(spend, self.round_factor).astype(int)
+      if isinstance(scenario, FixedBudgetScenario):
+        scenario = dataclasses.replace(
+            scenario, total_budget=np.sum(rounded_spend)
+        )
+
     optimal_spend = self._grid_search(
         spend_grid=spend_grid,
         incremental_outcome_grid=incremental_outcome_grid,
@@ -1336,6 +1357,8 @@ class OptimizationResults:
         title=summary_text.SPEND_ALLOCATION_CHART_TITLE,
         column_headers=[
             summary_text.CHANNEL_LABEL,
+            summary_text.NONOPTIMIZED_PCT_LABEL,
+            summary_text.OPTIMIZED_PCT_LABEL,
             summary_text.NONOPTIMIZED_SPEND_LABEL,
             summary_text.OPTIMIZED_SPEND_LABEL,
         ],
@@ -1357,22 +1380,55 @@ class OptimizationResults:
         .reset_index()
         .rename(columns={c.PCT_OF_SPEND: c.NON_OPTIMIZED})
     )
+    non_optimized_spend = (
+        self.nonoptimized_data[c.SPEND]
+        .to_dataframe()
+        .reset_index()
+        .rename(columns={c.SPEND: c.NON_OPTIMIZED_SPEND})
+    )
     optimized = (
         self.optimized_data[c.PCT_OF_SPEND]
         .to_dataframe()
         .reset_index()
         .rename(columns={c.PCT_OF_SPEND: c.OPTIMIZED})
     )
+    optimized_spend = (
+        self.optimized_data[c.SPEND]
+        .to_dataframe()
+        .reset_index()
+        .rename(columns={c.SPEND: c.OPTIMIZED_SPEND})
+    )
     df = (
-        non_optimized.merge(optimized, on=c.CHANNEL)
+        non_optimized
+        .merge(optimized, on=c.CHANNEL)
+        .merge(non_optimized_spend, on=c.CHANNEL)
+        .merge(optimized_spend, on=c.CHANNEL)
         .sort_values(by=c.OPTIMIZED, ascending=False)
         .reset_index(drop=True)
     )
     df[c.NON_OPTIMIZED] = df[c.NON_OPTIMIZED].apply(
-        lambda x: f'{round(x * 100)}%'
+        lambda x: f'{round(x * 100, 2)}%'
     )
-    df[c.OPTIMIZED] = df[c.OPTIMIZED].apply(lambda x: f'{round(x * 100)}%')
-    return df
+    df[c.OPTIMIZED] = df[c.OPTIMIZED].apply(
+        lambda x: f'{round(x * 100, 2)}%'
+    )
+
+    df[c.NON_OPTIMIZED_SPEND] = df[c.NON_OPTIMIZED_SPEND].apply(
+        lambda x: f"{c.DEFAULT_CURRENCY} {round(x, 2)}"
+    )
+    df[c.OPTIMIZED_SPEND] = df[c.OPTIMIZED_SPEND].apply(
+        lambda x: f"{c.DEFAULT_CURRENCY} {round(x, 2)}"
+    )
+
+    total_budget_row = pd.DataFrame({
+        c.CHANNEL: [c.TOTAL_BUDGET],
+        c.NON_OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget, 2)}"],
+        c.OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget, 2)}"],
+        c.NON_OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget, 2)}"],
+        c.OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget, 2)}"],
+    })
+
+    return pd.concat([df, total_budget_row], ignore_index=True)
 
   def _create_response_curves_section(self) -> str:
     """Creates the HTML card snippet for the response curves section."""
@@ -1666,12 +1722,17 @@ class BudgetOptimizer:
       scenario = FlexibleBudgetScenario(
           target_metric=c.MROI, target_value=target_mroi
       )
+
+    use_historical_budget = use_historical_budget
+
     spend = optimization_grid.optimize(
         scenario=scenario,
         pct_of_spend=pct_of_spend,
         spend_constraint_lower=spend_constraint_lower,
         spend_constraint_upper=spend_constraint_upper,
+        use_historical_budget=use_historical_budget
     )
+
 
     new_data = new_data or analyzer_module.DataTensors()
     nonoptimized_data = self._create_budget_dataset(
@@ -1708,6 +1769,10 @@ class BudgetOptimizer:
       constraints[c.TARGET_ROI] = target_roi
     elif target_mroi:
       constraints[c.TARGET_MROI] = target_mroi
+
+    use_historical_budget = budget is None or np.isclose(
+        budget, np.sum(optimization_grid.historical_spend)
+    )
     optimized_data = self._create_budget_dataset(
         new_data=new_data.filter_fields(c.PAID_DATA + (c.TIME,)),
         use_posterior=use_posterior,
