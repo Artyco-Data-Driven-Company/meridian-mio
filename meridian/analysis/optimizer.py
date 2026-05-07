@@ -1413,19 +1413,12 @@ class OptimizationResults:
         lambda x: f'{round(x * 100, 2)}%'
     )
 
-    df[c.NON_OPTIMIZED_SPEND] = df[c.NON_OPTIMIZED_SPEND].apply(
-        lambda x: f"{c.DEFAULT_CURRENCY} {round(x, 2)}"
-    )
-    df[c.OPTIMIZED_SPEND] = df[c.OPTIMIZED_SPEND].apply(
-        lambda x: f"{c.DEFAULT_CURRENCY} {round(x, 2)}"
-    )
-
     total_budget_row = pd.DataFrame({
         c.CHANNEL: [c.TOTAL_BUDGET],
-        c.NON_OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget, 2)}"],
-        c.OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget, 2)}"],
-        c.NON_OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget, 2)}"],
-        c.OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget, 2)}"],
+        c.NON_OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget)}"],
+        c.OPTIMIZED: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget)}"],
+        c.NON_OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.nonoptimized_data.budget)}"],
+        c.OPTIMIZED_SPEND: [f"{c.DEFAULT_CURRENCY} {round(self.optimized_data.budget)}"],
     })
 
     return pd.concat([df, total_budget_row], ignore_index=True)
