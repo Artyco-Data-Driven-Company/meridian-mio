@@ -19,4 +19,5 @@ from meridian.analysis.helper import ClientConfig, GCPClient
 from meridian.analysis import formatter
 from meridian.analysis import optimizer
 from meridian.analysis import summarizer
+from meridian.analysis import summarizer_cm
 from meridian.analysis import visualizer
