@@ -91,6 +91,7 @@ class Summarizer:
       filepath: str,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
+      selected_geos: Sequence[str] | None = None,
   ):
     """Generates and saves the HTML results summary output.
 
@@ -100,8 +101,12 @@ class Summarizer:
       start_date: Optional start date selector, *inclusive*, in _yyyy-mm-dd_
         format.
       end_date: Optional end date selector, *inclusive* in _yyyy-mm-dd_ format.
+      selected_geos: Optional list containing a subset of geos to include. By
+        default, all geos are included.
     """
-    report = self._gen_model_results_summary(start_date, end_date)
+    report = self._gen_model_results_summary(
+        start_date, end_date, selected_geos
+    )
 
     # Export chart JSON key comparison for debugging/inspection purposes.
     export_path = os.path.join(filepath, 'export_charts')
@@ -124,6 +129,7 @@ class Summarizer:
       self,
       start_date: tc.Date = None,
       end_date: tc.Date = None,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Generate HTML results summary output (as sanitized content str)."""
     all_dates = self._meridian.input_data.time_coordinates.all_dates
@@ -148,6 +154,12 @@ class Summarizer:
       raise ValueError(
           f'start_date ({start_date}) must be before end_date ({end_date})!'
       )
+    if selected_geos:
+      analyzed_geos = self._model_fit.model_fit_data.geo
+      if any(geo not in analyzed_geos for geo in selected_geos):
+        raise ValueError(
+            f'`selected_geos` contains invalid geos. Valid geos are: {analyzed_geos.values.tolist()}'
+        )
 
     selected_times = self._meridian.expand_selected_time_dims(
         start_date, end_date
@@ -164,6 +176,7 @@ class Summarizer:
     template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
     )
+    template_env.globals[c.SELECTED_GEOS] = selected_geos
     template_env.globals['font_family'] = self.client_config.get(
         'html_reports.global.font_family', c.FONT_FAMILY
     )
@@ -173,8 +186,7 @@ class Summarizer:
 
     html_template = template_env.get_template('summary.html.jinja')
     cards_htmls = self._create_cards_htmls(
-        template_env,
-        selected_times=selected_times,
+        template_env, selected_times=selected_times, selected_geos=selected_geos
     )
 
     return html_template.render(
@@ -185,6 +197,7 @@ class Summarizer:
       self,
       template_env: jinja2.Environment,
       selected_times: Sequence[str] | None,
+      selected_geos: Sequence[str] | None = None,
   ) -> Sequence[str]:
     """Creates the HTML snippets for cards in the summary page."""
     media_summary = visualizer.MediaSummary(
@@ -202,21 +215,25 @@ class Summarizer:
             selected_times=selected_times,
             use_kpi=self._use_kpi,
             client_config=self.client_config,
+            selected_geos=selected_geos,
         )
         if self._meridian.n_rf_channels > 0
         else None
     )
     cards = [
         self._create_model_fit_card_html(
-            template_env, selected_times=selected_times
+            template_env,
+            selected_times=selected_times,
+            selected_geos=selected_geos,
         ),
         self._create_outcome_contrib_card_html(
             template_env,
             media_summary,
             selected_times=selected_times,
+            selected_geos=selected_geos,
         ),
         self._create_performance_breakdown_card_html(
-            template_env, media_summary
+            template_env, media_summary, selected_geos=selected_geos
         ),
         self._create_response_curves_card_html(
             template_env=template_env,
@@ -224,6 +241,7 @@ class Summarizer:
             media_summary=media_summary,
             media_effects=media_effects,
             reach_frequency=reach_frequency,
+            selected_geos=selected_geos,
         ),
     ]
 
@@ -323,6 +341,7 @@ class Summarizer:
       template_env: jinja2.Environment,
       media_summary: visualizer.MediaSummary,
       selected_times: Sequence[str] | None,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Creates the HTML snippet for the Outcome Contrib card."""
     outcome = self._kpi_or_revenue()
@@ -345,7 +364,7 @@ class Summarizer:
                 outcome=outcome
             ),
             chart_json=media_summary.plot_channel_contribution_area_chart(
-                time_granularity=time_granularity
+                time_granularity=time_granularity, selected_geos=selected_geos
             ).to_json(),
         ),
         chart_overrides=self.client_config.get(
@@ -360,7 +379,7 @@ class Summarizer:
                 outcome=outcome
             ),
             chart_json=media_summary.plot_channel_contribution_bump_chart(
-                time_granularity=time_granularity
+                time_granularity=time_granularity, selected_geos=selected_geos
             ).to_json(),
         ),
         chart_overrides=self.client_config.get(
@@ -373,14 +392,16 @@ class Summarizer:
             description=summary_text.CHANNEL_DRIVERS_CHART_DESCRIPTION.format(
                 outcome=outcome
             ),
-            chart_json=media_summary.plot_contribution_waterfall_chart().to_json(),
+            chart_json=media_summary.plot_contribution_waterfall_chart(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.channel-drivers-chart'
         ),
     )
     lead_channels = self._get_sorted_posterior_mean_metrics_df(
-        media_summary, [c.INCREMENTAL_OUTCOME]
+        media_summary, [c.INCREMENTAL_OUTCOME], selected_geos=selected_geos
     )[c.CHANNEL][:2]
     formatted_channels = [channel.title() for channel in lead_channels]
 
@@ -390,7 +411,9 @@ class Summarizer:
             description=summary_text.SPEND_OUTCOME_CHART_DESCRIPTION.format(
                 outcome=outcome
             ),
-            chart_json=media_summary.plot_spend_vs_contribution().to_json(),
+            chart_json=media_summary.plot_spend_vs_contribution(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.spend-outcome-chart'
@@ -402,7 +425,9 @@ class Summarizer:
             description=summary_text.OUTCOME_CONTRIBUTION_CHART_DESCRIPTION.format(
                 outcome=outcome
             ),
-            chart_json=media_summary.plot_contribution_pie_chart().to_json(),
+            chart_json=media_summary.plot_contribution_pie_chart(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.outcome-contribution-chart'
@@ -430,9 +455,13 @@ class Summarizer:
       media_summary: visualizer.MediaSummary,
       metrics: Sequence[str],
       ascending: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ) -> pd.DataFrame:
+    selected_geos = tuple(selected_geos) if selected_geos else None
     return (
-        media_summary.get_paid_summary_metrics()[metrics]
+        media_summary.get_paid_summary_metrics(selected_geos=selected_geos)[
+            metrics
+        ]
         .sel(distribution=c.POSTERIOR, metric=c.MEAN)
         .drop_sel(channel=c.ALL_CHANNELS)
         .to_dataframe()
@@ -446,9 +475,13 @@ class Summarizer:
       media_summary: visualizer.MediaSummary,
       metrics: Sequence[str],
       ascending: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ) -> pd.DataFrame:
+    selected_geos = tuple(selected_geos) if selected_geos else None
     return (
-        media_summary.get_paid_summary_metrics()[metrics]
+        media_summary.get_paid_summary_metrics(selected_geos=selected_geos)[
+            metrics
+        ]
         .sel(distribution=c.POSTERIOR, metric=c.MEDIAN)
         .drop_sel(channel=c.ALL_CHANNELS)
         .to_dataframe()
@@ -461,13 +494,16 @@ class Summarizer:
       self,
       template_env: jinja2.Environment,
       media_summary: visualizer.MediaSummary,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Creates the HTML snippet for the ROI and CPIK Breakdown card."""
     roi_effectiveness_chart = self.customize_charts.register_chart_spec(
         formatter.ChartSpec(
             id=summary_text.ROI_EFFECTIVENESS_CHART_ID,
             description=summary_text.ROI_EFFECTIVENESS_CHART_DESCRIPTION,
-            chart_json=media_summary.plot_roi_vs_effectiveness().to_json(),
+            chart_json=media_summary.plot_roi_vs_effectiveness(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-effectiveness-chart'
@@ -477,7 +513,9 @@ class Summarizer:
         formatter.ChartSpec(
             id=summary_text.ROI_MARGINAL_CHART_ID,
             description=summary_text.ROI_MARGINAL_CHART_DESCRIPTION,
-            chart_json=media_summary.plot_roi_vs_mroi().to_json(),
+            chart_json=media_summary.plot_roi_vs_mroi(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-marginal-chart'
@@ -486,7 +524,9 @@ class Summarizer:
     roi_channel_chart = self.customize_charts.register_chart_spec(
         formatter.ChartSpec(
             id=summary_text.ROI_CHANNEL_CHART_ID,
-            chart_json=media_summary.plot_roi_bar_chart().to_json(),
+            chart_json=media_summary.plot_roi_bar_chart(
+                selected_geos=selected_geos
+            ).to_json(),
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.roi-channel-chart'
@@ -495,22 +535,26 @@ class Summarizer:
     cpik_channel_chart = self.customize_charts.register_chart_spec(
         formatter.ChartSpec(
             id=summary_text.CPIK_CHANNEL_CHART_ID,
-            chart_json=media_summary.plot_cpik().to_json(),
+            chart_json=media_summary.plot_cpik(
+                selected_geos=selected_geos
+            ).to_json(),
             description=summary_text.CPIK_CHANNEL_CHART_DESCRIPTION,
         ),
         chart_overrides=self.client_config.get(
             'html_reports.model_results_summary.cpik-channel-chart'
         ),
     )
-    roi_df = self._get_sorted_posterior_mean_metrics_df(media_summary, [c.ROI])
+    roi_df = self._get_sorted_posterior_mean_metrics_df(
+        media_summary, [c.ROI], selected_geos=selected_geos
+    )
     effectiveness_df = self._get_sorted_posterior_mean_metrics_df(
-        media_summary, [c.EFFECTIVENESS]
+        media_summary, [c.EFFECTIVENESS], selected_geos=selected_geos
     )
     mroi_df = self._get_sorted_posterior_mean_metrics_df(
-        media_summary, [c.MROI]
+        media_summary, [c.MROI], selected_geos=selected_geos
     )
     cpik_df = self._get_sorted_posterior_median_metrics_df(
-        media_summary, [c.CPIK], ascending=True
+        media_summary, [c.CPIK], ascending=True, selected_geos=selected_geos
     )
     insights = summary_text.PERFORMANCE_BREAKDOWN_INSIGHTS_FORMAT.format(
         lead_roi_channel=roi_df[c.CHANNEL][0].title(),
@@ -540,6 +584,7 @@ class Summarizer:
       media_summary: visualizer.MediaSummary,
       media_effects: visualizer.MediaEffects,
       reach_frequency: visualizer.ReachAndFrequency | None,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Creates the HTML snippet for the Optimal Analyst card."""
     outcome = self._kpi_or_revenue()
@@ -559,6 +604,7 @@ class Summarizer:
                     plot_separately=False,
                     include_ci=False,
                     num_channels_displayed=7,
+                    selected_geos=selected_geos,
                 ).to_json(),
             ),
             chart_overrides=self.client_config.get(
@@ -572,7 +618,9 @@ class Summarizer:
     )
     if reach_frequency is not None:
       assert self._meridian.n_rf_channels > 0
-      optimal_rf = self._select_optimal_rf_data(media_summary, reach_frequency)
+      optimal_rf = self._select_optimal_rf_data(
+          media_summary, reach_frequency, selected_geos
+      )
       channel_name = optimal_rf[c.RF_CHANNEL].values.item()
       opt_freq = '{:.1f}'.format(optimal_rf.values.item())
       description = summary_text.OPTIMAL_FREQ_CHART_DESCRIPTION
@@ -609,6 +657,7 @@ class Summarizer:
       self,
       media_summary: visualizer.MediaSummary,
       reach_frequency: visualizer.ReachAndFrequency,
+      selected_geos: Sequence[str] | None = None,
   ) -> xr.DataArray:
     """Selects and returns the `optimal_frequency` DataArray--if any.
 
@@ -625,9 +674,10 @@ class Summarizer:
     rf_channels = reach_frequency.optimal_frequency_data.rf_channel
     assert rf_channels.size > 0
     # This will raise KeyError if not all `rf_channels` can be found in here:
-    rf_channel_spends = media_summary.get_paid_summary_metrics()[c.SPEND].sel(
-        channel=rf_channels
-    )
+    selected_geos = tuple(selected_geos) if selected_geos else None
+    rf_channel_spends = media_summary.get_paid_summary_metrics(
+        selected_geos=selected_geos
+    )[c.SPEND].sel(channel=rf_channels)
     most_spend_rf_channel = rf_channel_spends.idxmax()
 
     return reach_frequency.optimal_frequency_data.sel(

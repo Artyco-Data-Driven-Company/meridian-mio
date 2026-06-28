@@ -686,6 +686,7 @@ class ReachAndFrequency:
       client_config: ClientConfig,
       selected_times: Sequence[str] | None = None,
       use_kpi: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ):
     """Initializes the reach and frequency dataset for the model data.
 
@@ -694,6 +695,8 @@ class ReachAndFrequency:
       selected_times: Optional list containing a subset of times to include. By
         default, all time periods are included.
       use_kpi: If `True`, KPI is used instead of revenue.
+      selected_geos: Optional list containing a subset of geos to include. By
+        default, all geos are included.
     """
     self._meridian = meridian
     self._analyzer = analyzer.Analyzer(meridian)
@@ -702,6 +705,7 @@ class ReachAndFrequency:
     self._optimal_frequency_data = self._analyzer.optimal_freq(
         selected_times=selected_times,
         use_kpi=self._use_kpi,
+        selected_geos=selected_geos,
     )
     self.client_config = client_config
 
@@ -922,6 +926,7 @@ class MediaEffects:
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       selected_times: frozenset[str] | None = None,
       by_reach: bool = True,
+      selected_geos: Sequence[str] | None = None,
   ) -> xr.Dataset:
     """Dataset holding the calculated response curves data.
 
@@ -945,6 +950,8 @@ class MediaEffects:
       by_reach: For the channel w/ reach and frequency, return the response
         curves by reach given fixed frequency if true; return the response
         curves by frequency given fixed reach if false.
+      selected_geos: Optional list of geos to include. By default, all geos are
+        included.
 
     Returns:
       A Dataset displaying the response curves data.
@@ -956,6 +963,7 @@ class MediaEffects:
         selected_times=selected_times_list,
         by_reach=by_reach,
         use_kpi=self._use_kpi,
+        selected_geos=selected_geos,
     )
 
   @functools.lru_cache(maxsize=128)
@@ -1022,6 +1030,7 @@ class MediaEffects:
       plot_separately: bool = True,
       include_ci: bool = True,
       num_channels_displayed: int | None = None,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots the response curves for each channel.
 
@@ -1049,12 +1058,15 @@ class MediaEffects:
       include_ci: If `True`, plots the credible interval. Defaults to `True`.
       num_channels_displayed: Number of channels to show on the layered plot. If
         plotting a faceted chart, this value is ignored.
+      selected_geos: Optional list of geos to include. By default, all geos are
+        included.
 
     Returns:
       An Altair plot showing the response curves per channel.
     """
 
     total_num_channels = len(self._meridian.input_data.get_all_channels())
+    # FIXME: No sé si sean difentes por geo.
     if plot_separately:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
@@ -1077,6 +1089,7 @@ class MediaEffects:
         confidence_level=confidence_level,
         selected_times=selected_times,
         by_reach=by_reach,
+        selected_geos=selected_geos,
     )
     y_axis_label = (
         summary_text.INC_KPI_LABEL
@@ -1419,6 +1432,7 @@ class MediaEffects:
       selected_times: frozenset[str] | None = None,
       confidence_level: float = c.DEFAULT_CONFIDENCE_LEVEL,
       by_reach: bool = True,
+      selected_geos: Sequence[str] | None = None,
   ) -> pd.DataFrame:
     """Returns DataFrame with top channels by spend for the layered plot.
 
@@ -1433,16 +1447,20 @@ class MediaEffects:
       by_reach: For the channel w/ reach and frequency, return the response
         curves by reach given fixed frequency if true; return the response
         curves by frequency given fixed reach if false.
+      selected_geos: Optional list of geos to include. By default, all geos are
+        included.
 
     Returns:
       A DataFrame containing the top chosen channels
       num_channels, ordered by the spend, with the columns being
       channel, spend, spend_multiplier, ci_hi, ci_lo and incremental_outcome
     """
+    selected_geos = tuple(selected_geos) if selected_geos else None
     data = self.response_curves_data(
         confidence_level=confidence_level,
         selected_times=selected_times,
         by_reach=by_reach,
+        selected_geos=selected_geos,
     )
     list_sorted_channels_cost = list(
         data.sel(spend_multiplier=1)
@@ -1534,13 +1552,17 @@ class MediaSummary:
 
   @functools.lru_cache(maxsize=128)
   def get_paid_summary_metrics(
-      self, aggregate_times: bool = True
+      self,
+      aggregate_times: bool = True,
+      selected_geos: Sequence[str] | None = None,
   ) -> xr.Dataset:
     """Dataset holding the calculated summary metrics for the paid channels.
 
     Args:
       aggregate_times: If `True`, aggregates the metrics across all time
         periods.  If `False`, returns time-varying metrics.
+      selected_geos: Optional list of geos to include. By default, all geos are
+        included.
 
     Returns:
       An `xarray.Dataset` containing the following:
@@ -1559,6 +1581,7 @@ class MediaSummary:
         confidence_level=self._confidence_level,
         include_non_paid_channels=False,
         aggregate_times=aggregate_times,
+        selected_geos=selected_geos,
     )
 
   @property
@@ -1572,12 +1595,18 @@ class MediaSummary:
     return self.get_all_summary_metrics()
 
   @functools.lru_cache(maxsize=128)
-  def get_all_summary_metrics(self, aggregate_times: bool = True) -> xr.Dataset:
+  def get_all_summary_metrics(
+      self,
+      aggregate_times: bool = True,
+      selected_geos: Sequence[str] | None = None,
+  ) -> xr.Dataset:
     """Dataset holding the calculated summary metrics for all channels.
 
     Args:
       aggregate_times: If `True`, aggregates the metrics across all time
         periods.  If `False`, returns time-varying metrics.
+      selected_geos: Optional list of geos to include. By default, all geos are
+        included.
 
     Returns:
       An `xarray.Dataset` containing the following:
@@ -1593,6 +1622,7 @@ class MediaSummary:
         include_non_paid_channels=True,
         non_media_baseline_values=self._non_media_baseline_values,
         aggregate_times=aggregate_times,
+        selected_geos=selected_geos,
     )
 
   def summary_table(
@@ -1746,13 +1776,17 @@ class MediaSummary:
     self._non_media_baseline_values = non_media_baseline_values
 
   def plot_channel_contribution_area_chart(
-      self, time_granularity: str = c.QUARTERLY
+      self,
+      time_granularity: str = c.QUARTERLY,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots a stacked area chart of the contribution share per channel by time.
 
     Args:
       time_granularity: The granularity for the time axis. Options are `weekly`
         or `quarterly`. Defaults to `quarterly`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the contribution share per channel by time.
@@ -1770,7 +1804,9 @@ class MediaSummary:
     )
 
     outcome_df = self.contribution_metrics(
-        include_non_paid=True, aggregate_times=False
+        include_non_paid=True,
+        aggregate_times=False,
+        selected_geos=selected_geos,
     )
 
     # Ensure proper ordering for the stacked area chart. Baseline should be at
@@ -1871,7 +1907,9 @@ class MediaSummary:
     return plot
 
   def plot_channel_contribution_bump_chart(
-      self, time_granularity: str = c.QUARTERLY
+      self,
+      time_granularity: str = c.QUARTERLY,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots a bump chart of channel contribution rank over time.
 
@@ -1883,6 +1921,8 @@ class MediaSummary:
     Args:
       time_granularity: The granularity for the time axis. Options are `weekly`
         or `quarterly`. Defaults to `quarterly`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the contribution rank per channel by time.
@@ -1896,7 +1936,9 @@ class MediaSummary:
       )
 
     outcome_df = self.contribution_metrics(
-        include_non_paid=True, aggregate_times=False
+        include_non_paid=True,
+        aggregate_times=False,
+        selected_geos=selected_geos,
     )
     outcome_df[c.TIME] = pd.to_datetime(outcome_df[c.TIME])
 
@@ -2005,14 +2047,20 @@ class MediaSummary:
 
     return plot
 
-  def plot_contribution_waterfall_chart(self) -> alt.Chart:
+  def plot_contribution_waterfall_chart(
+      self, selected_geos: Sequence[str] | None = None
+  ) -> alt.Chart:
     """Plots a waterfall chart of the contribution share per channel.
 
+    Args:
+      selected_geos: Optional list of geos to include in the plot. If `None`, all geos are included.
     Returns:
       An Altair plot showing the contributions per channel.
     """
     outcome = c.KPI.upper() if self._use_kpi else c.REVENUE.title()
-    outcome_df = self.contribution_metrics(include_non_paid=True)
+    outcome_df = self.contribution_metrics(
+        include_non_paid=True, selected_geos=selected_geos
+    )
     pct = c.PCT_OF_CONTRIBUTION
     value = c.INCREMENTAL_OUTCOME
     outcome_df['outcome_text'] = outcome_df.apply(
@@ -2113,14 +2161,19 @@ class MediaSummary:
         .configure_view(strokeOpacity=0)
     )
 
-  def plot_contribution_pie_chart(self) -> alt.Chart:
+  def plot_contribution_pie_chart(
+      self, selected_geos: Sequence[str] | None = None
+  ) -> alt.Chart:
     """Plots a pie chart of the total contributions from channels.
+
+    Args:
+      selected_geos: Optional list of geos to include in the plot. If `None`, all geos are included.
 
     Returns:
       An Altair plot showing the contributions for all channels.
     """
     outcome_df = self.contribution_metrics(
-        [c.ALL_CHANNELS], include_non_paid=True
+        [c.ALL_CHANNELS], include_non_paid=True, selected_geos=selected_geos
     )
 
     domain = [c.BASELINE, c.ALL_CHANNELS]
@@ -2165,18 +2218,23 @@ class MediaSummary:
         )
     )
 
-  def plot_spend_vs_contribution(self) -> alt.Chart:
+  def plot_spend_vs_contribution(
+      self, selected_geos: Sequence[str] | None = None
+  ) -> alt.Chart:
     """Plots a bar chart comparing spend versus contribution shares per channel.
 
     This compares the spend and contribution percentages for each channel, and
     the ROI per channel. The contribution percentages are out of the total
     media-driven outcome amount.
 
+    Args:
+      selected_geos: Optional list of geos to include in the plot. If `None`, all geos are included.
+
     Returns:
       An Altair plot showing the spend versus outcome percentages per channel.
     """
     outcome = c.KPI.upper() if self._use_kpi else c.REVENUE
-    df = self._transform_contribution_spend_metrics()
+    df = self._transform_contribution_spend_metrics(selected_geos=selected_geos)
     domain = [
         f'% {outcome.title() if outcome == c.REVENUE else outcome}',
         '% Spend',
@@ -2291,11 +2349,15 @@ class MediaSummary:
         .configure_view(strokeOpacity=0)  # Remove facet outlines.
     )
 
-  def plot_roi_bar_chart(self, include_ci: bool = True) -> alt.Chart:
+  def plot_roi_bar_chart(
+      self, include_ci: bool = True, selected_geos: Sequence[str] | None = None
+  ) -> alt.Chart:
     """Plots the ROI bar chart for each channel.
 
     Args:
       include_ci: If `True`, plots the credible interval. Defaults to `True`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the ROI per channel.
@@ -2308,14 +2370,22 @@ class MediaSummary:
     else:
       title = summary_text.ROI_CHANNEL_CHART_TITLE_FORMAT.format(ci='')
     return self._plot_metric_bar_chart(
-        c.ROI, summary_text.ROI_LABEL, title, include_ci=include_ci
+        c.ROI,
+        summary_text.ROI_LABEL,
+        title,
+        include_ci=include_ci,
+        selected_geos=selected_geos,
     )
 
-  def plot_cpik(self, include_ci: bool = True) -> alt.Chart:
+  def plot_cpik(
+      self, include_ci: bool = True, selected_geos: Sequence[str] | None = None
+  ) -> alt.Chart:
     """Plots the CPIK bar chart for each channel.
 
     Args:
       include_ci: If `True`, plots the credible interval. Defaults to `True`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the CPIK per channel.
@@ -2328,13 +2398,18 @@ class MediaSummary:
     else:
       title = summary_text.CPIK_CHANNEL_CHART_TITLE_FORMAT.format(ci='')
     return self._plot_metric_bar_chart(
-        c.CPIK, summary_text.CPIK_LABEL, title, include_ci=include_ci
+        c.CPIK,
+        summary_text.CPIK_LABEL,
+        title,
+        include_ci=include_ci,
+        selected_geos=selected_geos,
     )
 
   def plot_roi_vs_effectiveness(
       self,
       selected_channels: Sequence[str] | None = None,
       disable_size: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots the ROI versus effectiveness bubble chart.
 
@@ -2346,6 +2421,8 @@ class MediaSummary:
         media channels are shown in the plot.
       disable_size: If `True`, disables the different sizing of the bubbles and
         plots each channel uniformly. Defaults to `False`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the ROI and effectiveness per channel.
@@ -2356,6 +2433,7 @@ class MediaSummary:
         title=summary_text.ROI_EFFECTIVENESS_CHART_TITLE,
         selected_channels=selected_channels,
         disable_size=disable_size,
+        selected_geos=selected_geos,
     )
 
   def plot_roi_vs_mroi(
@@ -2363,6 +2441,7 @@ class MediaSummary:
       selected_channels: Sequence[str] | None = None,
       disable_size: bool = False,
       equal_axes: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots the ROI versus mROI bubble chart.
 
@@ -2376,6 +2455,8 @@ class MediaSummary:
         plots each channel uniformly. Defaults to `False`.
       equal_axes: If `True`, plots the X and Y axes with equal scale. Defaults
         to `False`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the ROI and mROI per channel.
@@ -2387,6 +2468,7 @@ class MediaSummary:
         selected_channels=selected_channels,
         disable_size=disable_size,
         equal_axes=equal_axes,
+        selected_geos=selected_geos,
     )
 
   def _plot_roi_bubble_chart(
@@ -2397,6 +2479,7 @@ class MediaSummary:
       selected_channels: Sequence[str] | None = None,
       disable_size: bool = False,
       equal_axes: bool = False,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots a bubble chart comparing ROI to another metric of choice.
 
@@ -2415,11 +2498,14 @@ class MediaSummary:
         plots each channel uniformly. Defaults to False.
       equal_axes: If True, plots the X and Y axes with equal scale. Defaults to
         False.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair bubble plot showing the ROI, spend, and another metric.
     """
     if selected_channels:
+      selected_geos = tuple(selected_geos) if selected_geos else None
       channels = self.get_paid_summary_metrics().channel
       if any(channel not in channels for channel in selected_channels):
         raise ValueError(
@@ -2428,7 +2514,7 @@ class MediaSummary:
         )
 
     plot_df = self._transform_media_metrics_for_roi_bubble_plot(
-        metric, selected_channels
+        metric, selected_channels, selected_geos=selected_geos
     )
 
     axes_scale = alt.Scale()
@@ -2484,7 +2570,12 @@ class MediaSummary:
     )
 
   def _plot_metric_bar_chart(
-      self, metric: str, metric_label: str, title: str, include_ci: bool = True
+      self,
+      metric: str,
+      metric_label: str,
+      title: str,
+      include_ci: bool = True,
+      selected_geos: Sequence[str] | None = None,
   ) -> alt.Chart:
     """Plots a bar chart showing the specified metric for each channel.
 
@@ -2493,11 +2584,13 @@ class MediaSummary:
       metric_label: The label to use to identify the metric on the plot axis.
       title: The title of the plot.
       include_ci: If `True`, plots the credible interval. Defaults to `True`.
+      selected_geos: Optional list of geos to include in the plot. If `None`,
+        all geos are included.
 
     Returns:
       An Altair plot showing the specified metric per channel.
     """
-    df = self._summary_metric_to_df(metric)
+    df = self._summary_metric_to_df(metric, selected_geos=selected_geos)
     base = (
         alt.Chart(df)
         .mark_bar(
@@ -2567,7 +2660,10 @@ class MediaSummary:
     )
 
   def _transform_media_metrics_for_roi_bubble_plot(
-      self, metric: str, selected_channels: Sequence[str] | None = None
+      self,
+      metric: str,
+      selected_channels: Sequence[str] | None = None,
+      selected_geos: Sequence[str] | None = None,
   ) -> pd.DataFrame:
     """Transforms the metrics specifically for plotting the bubble plots.
 
@@ -2582,7 +2678,10 @@ class MediaSummary:
     Returns:
       A dataframe filtered based on the specifications.
     """
-    paid_summary_metrics = self.get_paid_summary_metrics()
+    selected_geos = tuple(selected_geos) if selected_geos else None
+    paid_summary_metrics = self.get_paid_summary_metrics(
+        selected_geos=selected_geos
+    )
     metrics_df = self._summary_metrics_to_mean_df(
         paid_summary_metrics,
         metrics=[c.ROI, metric],
@@ -2596,6 +2695,7 @@ class MediaSummary:
       selected_channels: Sequence[str] | None = None,
       include_non_paid: bool = False,
       aggregate_times: bool = True,
+      selected_geos: Sequence[str] | None = None,
   ) -> pd.DataFrame:
     """Transforms the media metrics for the contribution plot.
 
@@ -2610,14 +2710,20 @@ class MediaSummary:
         non-media channels in the contribution plot. Defaults to `False`.
       aggregate_times: If `True`, aggregates the metrics across all time
         periods.  If `False`, returns time-varying metrics.
+      selected_geos: Optional list of a subset of geos to filter by.
 
     Returns:
       A dataframe with contributions per channel.
     """
+    selected_geos = tuple(selected_geos) if selected_geos else None
     summary_metrics = (
-        self.get_all_summary_metrics(aggregate_times=aggregate_times)
+        self.get_all_summary_metrics(
+            aggregate_times=aggregate_times, selected_geos=selected_geos
+        )
         if include_non_paid
-        else self.get_paid_summary_metrics(aggregate_times=aggregate_times)
+        else self.get_paid_summary_metrics(
+            aggregate_times=aggregate_times, selected_geos=selected_geos
+        )
     )
 
     contribution_df = self._calculate_contribution_dataframe(
@@ -2738,7 +2844,9 @@ class MediaSummary:
           }
       )
 
-  def _transform_contribution_spend_metrics(self) -> pd.DataFrame:
+  def _transform_contribution_spend_metrics(
+      self, selected_geos: Sequence[str] | None = None
+  ) -> pd.DataFrame:
     """Transforms the media metrics for the spend vs contribution plot.
 
     The dataframe holds the percentages spent on each channel and then
@@ -2746,10 +2854,16 @@ class MediaSummary:
     total media-driven outcome. It combines these percentages with the ROI per
     channel and scales the ROI to fit the percentage data.
 
+    Args:
+      selected_geos: Optional list of geos to include in the plot. If `None`, all geos are included.
+
     Returns:
       A dataframe of spend and outcome percentages and ROI per channel.
     """
-    paid_summary_metrics = self.get_paid_summary_metrics()
+    selected_geos = tuple(selected_geos) if selected_geos else None
+    paid_summary_metrics = self.get_paid_summary_metrics(
+        selected_geos=selected_geos
+    )
     if self._use_kpi:
       outcome = summary_text.KPI_LABEL
     else:
@@ -2825,7 +2939,12 @@ class MediaSummary:
         .reset_index()
     )
 
-  def _summary_metric_to_df(self, metric: str) -> pd.DataFrame:
+  def _summary_metric_to_df(
+      self,
+      metric: str,
+      selected_channels: Sequence[str] | None = None,
+      selected_geos: Sequence[str] | None = None,
+  ) -> pd.DataFrame:
     """Transforms a summary metric to a pivoted dataframe.
 
     The dataframe includes the posterior data for the selected metric and its
@@ -2833,6 +2952,10 @@ class MediaSummary:
 
     Args:
       metric: The summary metric to include in the dataframe.
+      selected_channels: List of channels to include. If None, all media
+        channels will be included.
+      selected_geos: List of geographies to include. If None, all geographies
+        will be included.
 
     Returns:
       A dataframe of the posterior values for the selected metric.
@@ -2840,8 +2963,9 @@ class MediaSummary:
     # Format CPIK to use median instead of mean.
     central_tendency = c.MEDIAN if metric == c.CPIK else c.MEAN
     unused_central_tendency = c.MEAN if metric == c.CPIK else c.MEDIAN
+    selected_geos = tuple(selected_geos) if selected_geos else None
     return (
-        self.get_paid_summary_metrics()[metric]
+        self.get_paid_summary_metrics(selected_geos=selected_geos)[metric]
         .sel(distribution=c.POSTERIOR)
         .drop_sel(
             channel=c.ALL_CHANNELS,
