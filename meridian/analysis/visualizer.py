@@ -3003,16 +3003,20 @@ class MediaSummary:
         .rename(columns={central_tendency: metric})
     )
 
-  def get_kpi_sum(self) -> float:
+  def get_kpi_sum(self, selected_geos: Sequence[str] | None = None) -> float:
     """
     Returns the sum of the KPI values over the selected time periods.
     """
     df_kpi = self._meridian.input_data.kpi.to_dataframe().reset_index()
+    if selected_geos:
+      df_kpi = df_kpi[df_kpi['geo'].isin(selected_geos)]
     kpi_sum = df_kpi.loc[df_kpi['time'].isin(self._selected_times), 'kpi'].sum()
 
     return float(kpi_sum)
 
-  def get_summary_metrics_df(self) -> pd.DataFrame:
+  def get_summary_metrics_df(
+      self, selected_geos: Sequence[str] | None = None
+  ) -> pd.DataFrame:
     """
     Returns a DataFrame that summarizes key summary metrics for each channel.
     The DataFrame includes the following metrics:
@@ -3024,8 +3028,10 @@ class MediaSummary:
 
     The DataFrame includes only the posterior mean values for each metric.
     """
-
-    summary_metrics = self.get_paid_summary_metrics(aggregate_times=True)
+    selected_geos = tuple(selected_geos) if selected_geos else None
+    summary_metrics = self.get_paid_summary_metrics(
+        aggregate_times=True, selected_geos=selected_geos
+    )
 
     metrics = [c.INCREMENTAL_OUTCOME, c.PCT_OF_CONTRIBUTION, c.SPEND, c.ROI]
 

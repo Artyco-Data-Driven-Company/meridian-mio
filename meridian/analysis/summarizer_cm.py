@@ -78,7 +78,8 @@ class Summarizer:
       end_date: tc.Date,
       start_date_cm: tc.Date,
       end_date_cm: tc.Date,
-      bq_product_or_service: str = 'Unknown',
+      filepath_cm: str,
+      selected_geos: Sequence[str] | None = None,
   ):
     """
     Generates and saves the HTML comparison metrics summary output.
@@ -93,16 +94,21 @@ class Summarizer:
         inclusive, in yyyy-mm-dd format.
       end_date_cm (str): End date selector for comparison metrics,
         inclusive, in yyyy-mm-dd format.
-      bq_product_or_service: The product or service name to include in the
-        BigQuery table.
+      filepath_cm: Path to the directory where the parquet files for comparison
+        metrics will be saved.
+      selected_geos: Optional list containing a subset of geos to include. By
+        default, all geos are included.
     """
     self.utc_now = datetime.now(timezone.utc)
-    self.filepath_cm = filepath
-    self.prod_or_serv = bq_product_or_service
+    self.filepath_cm = filepath_cm
+    self.prod_or_serv = (
+        ', '.join(selected_geos) if selected_geos else 'All Geos'
+    )
+    self.selected_geos = selected_geos
 
     # Generate the report content
     report = self._gen_comparison_metrics_summary(
-        start_date, end_date, start_date_cm, end_date_cm
+        start_date, end_date, start_date_cm, end_date_cm, selected_geos
     )
 
     # Export chart JSON key comparison for debugging/inspection purposes.
@@ -128,6 +134,7 @@ class Summarizer:
       end_date: tc.Date,
       start_date_cm: tc.Date,
       end_date_cm: tc.Date,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Generate HTML comparison metrics summary output (as sanitized content str)."""
     all_dates = self._meridian.input_data.time_coordinates.all_dates
@@ -178,16 +185,32 @@ class Summarizer:
         start_date_cm, end_date_cm
     )
 
+    if selected_geos:
+      analyzed_geos = self._model_fit.model_fit_data.geo
+      if any(geo not in analyzed_geos for geo in selected_geos):
+        raise ValueError(
+            f'`selected_geos` contains invalid geos. Valid geos are: {analyzed_geos.values.tolist()}'
+        )
+
     template_env = formatter.create_template_env()
-    template_env.globals[c.START_DATE] = start_date.strftime(
-        f'%b {start_date.day}, %Y'
-    )
+
+    template_env.globals[c.SELECTED_GEOS] = selected_geos
 
     interval_days = self._meridian.input_data.time_coordinates.interval_days
     end_date_adjusted = end_date + pd.Timedelta(days=interval_days)
+    end_date_cm_adjusted = end_date_cm + pd.Timedelta(days=interval_days)
 
-    template_env.globals[c.END_DATE] = end_date_adjusted.strftime(
+    template_env.globals['start_date_cm_p1'] = start_date.strftime(
+        f'%b {start_date.day}, %Y'
+    )
+    template_env.globals['end_date_cm_p1'] = end_date_adjusted.strftime(
         f'%b {end_date_adjusted.day}, %Y'
+    )
+    template_env.globals['start_date_cm_p2'] = start_date_cm.strftime(
+        f'%b {start_date_cm.day}, %Y'
+    )
+    template_env.globals['end_date_cm_p2'] = end_date_cm_adjusted.strftime(
+        f'%b {end_date_cm_adjusted.day}, %Y'
     )
     template_env.globals['font_family'] = self.client_config.get(
         'html_reports.global.font_family', c.FONT_FAMILY
@@ -201,6 +224,7 @@ class Summarizer:
         template_env,
         selected_times=selected_times,
         cm_selected_times=comparison_selected_times,
+        selected_geos=selected_geos,
     )
 
     return html_template.render(
@@ -212,6 +236,7 @@ class Summarizer:
       template_env: jinja2.Environment,
       selected_times: Sequence[str] | None,
       cm_selected_times: Sequence[str] | None,
+      selected_geos: Sequence[str] | None = None,
   ):
     """Creates the HTML snippets for cards in the comparison metrics summary page."""
     media_summary = visualizer.MediaSummary(
@@ -232,8 +257,7 @@ class Summarizer:
             template_env,
             media_summary=media_summary,
             media_summary_cm=media_summary_cm,
-            selected_times=selected_times,
-            selected_times_cm=cm_selected_times,
+            selected_geos=selected_geos,
         ),
     ]
 
@@ -244,23 +268,25 @@ class Summarizer:
       template_env: jinja2.Environment,
       media_summary: visualizer.MediaSummary,
       media_summary_cm: visualizer.MediaSummary,
-      selected_times: Sequence[str] | None,
-      selected_times_cm: Sequence[str] | None,
+      selected_geos: Sequence[str] | None = None,
   ) -> str:
     """Creates the HTML snippet for the Comparison Metrics card."""
 
     # Get summary metrics dataframes for both periods
-    period_1_df = media_summary.get_summary_metrics_df()
-    period_2_df = media_summary_cm.get_summary_metrics_df()
+    period_1_df = media_summary.get_summary_metrics_df(
+        selected_geos=selected_geos
+    )
+    period_2_df = media_summary_cm.get_summary_metrics_df(
+        selected_geos=selected_geos
+    )
+
+    # Exclude channels with missing ROI values from the plot.
+    period_1_df = period_1_df.dropna(subset=[c.ROI]).reset_index(drop=True)
+    period_2_df = period_2_df.dropna(subset=[c.ROI]).reset_index(drop=True)
 
     # Get KPI sums for both periods
-    kpi_period_1 = media_summary.get_kpi_sum()
-    kpi_period_2 = media_summary_cm.get_kpi_sum()
-
-    # Get labels for the two comparison periods
-    period_1_label, period_2_label = self._get_labels_for_comparison_metrics(
-        selected_times, selected_times_cm
-    )
+    kpi_period_1 = media_summary.get_kpi_sum(selected_geos=selected_geos)
+    kpi_period_2 = media_summary_cm.get_kpi_sum(selected_geos=selected_geos)
 
     kpi_resume_table = self._create_kpi_comparison_table_spec(
         kpi_period_1,
@@ -305,15 +331,10 @@ class Summarizer:
         )
     )
 
-    insights = summary_text.COMPARISON_METRICS_INSIGHTS_FORMAT.format(
-        period_1=period_1_label,
-        period_2=period_2_label,
-    )
-
     return formatter.create_card_html(
         template_env,
         COMPARISON_METRICS_CARD_SPEC,
-        insights,
+        summary_text.COMPARISON_METRICS_INSIGHTS_FORMAT,
         [
             kpi_resume_table,
             spend_resume_table,
@@ -878,7 +899,7 @@ class Summarizer:
 
   def _comparison_df_to_parquet(self, df: pd.DataFrame, file_name: str) -> None:
     """Saves a DataFrame as a Parquet file in the comparison metrics directory."""
-    full_path = os.path.join(self.filepath_cm, 'cm_tables', file_name)
+    full_path = os.path.join(self.filepath_cm, file_name)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     df['product_or_service'] = self.prod_or_serv
     df['updated_time'] = self.utc_now
