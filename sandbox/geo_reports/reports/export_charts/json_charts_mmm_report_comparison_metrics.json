@@ -1,0 +1,290 @@
+{
+  "spend-comparison-pie-chart": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+    "config": {
+      "view": {
+        "continuousHeight": 300,
+        "continuousWidth": 300,
+        "stroke": null
+      }
+    },
+    "data": {
+      "name": "data-a44ff1a6032f719349a49bbea74046c7"
+    },
+    "datasets": {
+      "data-a44ff1a6032f719349a49bbea74046c7": [
+        {
+          "channel": "digital-afiliacion",
+          "pct_of_total_spend": 0.013009067624807358,
+          "spend": 19980.80859375
+        },
+        {
+          "channel": "digital-google",
+          "pct_of_total_spend": 0.07389950007200241,
+          "spend": 113503.28125
+        },
+        {
+          "channel": "off-resto",
+          "pct_of_total_spend": 0.3599133789539337,
+          "spend": 552796.0
+        },
+        {
+          "channel": "off-fidelidade",
+          "pct_of_total_spend": 0.5531780123710632,
+          "spend": 849633.8125
+        }
+      ]
+    },
+    "layer": [
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "digital-afiliacion",
+                "digital-google",
+                "off-resto",
+                "off-fidelidade"
+              ],
+              "range": [
+                "#700F08",
+                "#F1A5A1",
+                "#571A8B",
+                "#C3C7C9"
+              ]
+            }
+          },
+          "theta": {
+            "field": "spend",
+            "stack": true,
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "channel",
+              "type": "nominal"
+            },
+            {
+              "field": "spend",
+              "type": "quantitative"
+            },
+            {
+              "field": "pct_of_total_spend",
+              "format": ".1%",
+              "title": "% of total",
+              "type": "quantitative"
+            }
+          ]
+        },
+        "mark": {
+          "type": "arc"
+        }
+      },
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "digital-afiliacion",
+                "digital-google",
+                "off-resto",
+                "off-fidelidade"
+              ],
+              "range": [
+                "#700F08",
+                "#F1A5A1",
+                "#571A8B",
+                "#C3C7C9"
+              ]
+            }
+          },
+          "text": {
+            "field": "pct_of_total_spend",
+            "format": ".0%",
+            "type": "quantitative"
+          },
+          "theta": {
+            "field": "spend",
+            "stack": true,
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "fill": "white",
+          "font": "\"Space Grotesk\"",
+          "radius": 125,
+          "size": 14,
+          "type": "text"
+        }
+      }
+    ],
+    "title": {
+      "anchor": "start",
+      "color": "#3C4043",
+      "font": "\"Space Grotesk\"",
+      "fontSize": 18,
+      "fontWeight": "normal",
+      "offset": 10,
+      "text": "Spend Comparison Pie Chart"
+    },
+    "width": 400
+  },
+  "contribution-comparison-pie-chart": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+    "config": {
+      "view": {
+        "continuousHeight": 300,
+        "continuousWidth": 300,
+        "stroke": null
+      }
+    },
+    "data": {
+      "name": "data-5a9c5a1d1fd90ee8d7fbc156f15712f9"
+    },
+    "datasets": {
+      "data-5a9c5a1d1fd90ee8d7fbc156f15712f9": [
+        {
+          "channel": "digital-afiliacion",
+          "pct_of_contribution": 0.0006881955778226256,
+          "pct_of_total_contribution": 0.031888142228126526
+        },
+        {
+          "channel": "digital-google",
+          "pct_of_contribution": 0.007423490285873413,
+          "pct_of_total_contribution": 0.34397390484809875
+        },
+        {
+          "channel": "off-resto",
+          "pct_of_contribution": 0.006436314433813095,
+          "pct_of_total_contribution": 0.2982322573661804
+        },
+        {
+          "channel": "off-fidelidade",
+          "pct_of_contribution": 0.00703355111181736,
+          "pct_of_total_contribution": 0.3259057402610779
+        }
+      ]
+    },
+    "layer": [
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "digital-afiliacion",
+                "digital-google",
+                "off-resto",
+                "off-fidelidade"
+              ],
+              "range": [
+                "#700F08",
+                "#F1A5A1",
+                "#571A8B",
+                "#C3C7C9"
+              ]
+            }
+          },
+          "theta": {
+            "field": "pct_of_contribution",
+            "stack": true,
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "channel",
+              "type": "nominal"
+            },
+            {
+              "field": "pct_of_contribution",
+              "type": "quantitative"
+            },
+            {
+              "field": "pct_of_total_contribution",
+              "format": ".1%",
+              "title": "% of total",
+              "type": "quantitative"
+            }
+          ]
+        },
+        "mark": {
+          "type": "arc"
+        }
+      },
+      {
+        "encoding": {
+          "color": {
+            "field": "channel",
+            "legend": {
+              "offset": -25,
+              "rowPadding": 10,
+              "title": null
+            },
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "digital-afiliacion",
+                "digital-google",
+                "off-resto",
+                "off-fidelidade"
+              ],
+              "range": [
+                "#700F08",
+                "#F1A5A1",
+                "#571A8B",
+                "#C3C7C9"
+              ]
+            }
+          },
+          "text": {
+            "field": "pct_of_total_contribution",
+            "format": ".0%",
+            "type": "quantitative"
+          },
+          "theta": {
+            "field": "pct_of_contribution",
+            "stack": true,
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "fill": "white",
+          "font": "\"Space Grotesk\"",
+          "radius": 125,
+          "size": 14,
+          "type": "text"
+        }
+      }
+    ],
+    "title": {
+      "anchor": "start",
+      "color": "#3C4043",
+      "font": "\"Space Grotesk\"",
+      "fontSize": 18,
+      "fontWeight": "normal",
+      "offset": 10,
+      "text": "Contribution Comparison Pie Chart"
+    },
+    "width": 400
+  }
+}

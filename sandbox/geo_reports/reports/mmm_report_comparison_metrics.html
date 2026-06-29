@@ -1,0 +1,805 @@
+<!--
+Copyright 2024 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://www.gstatic.com/external_hosted/vega/vega.js"></script>
+    <script src="https://www.gstatic.com/external_hosted/vega_lite/vega-lite.js"></script>
+    <script src="https://www.gstatic.com/external_hosted/vega_embed/vega-embed.js"></script>
+    <title>
+      Marketing Mix Modeling Report
+    </title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {--font-family: "Space Grotesk";}
+      /**
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+:root {
+  --title-dark-grey: #202124;
+  --chip-blue: #1967d2;
+  --insights-bg-grey: #eee;
+  --text-grey: #3c4043;
+  --text-green: #34a853;
+  --text-red: #d93025;
+  --border-grey: #dadce0;
+}
+
+body {
+  background: #fafbfb;
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  flex-shrink: 0;
+}
+
+.header {
+  height: 40px;
+  margin-top: 26px;
+  margin-left: 30px;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  column-gap: 28px;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+}
+
+.title {
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 30px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 50px;
+}
+
+chips {
+  display: inline-flex;
+  gap: 8px;
+  padding-top: 36px;
+  padding-bottom: 32px;
+  padding-left: 29px;
+  flex-shrink: 0;
+}
+
+chip {
+  display: inline-flex;
+  height: 32px;
+  padding: 6px 12px;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  border-radius: 100px;
+  background: #e8f0fe;
+  color: var(--chip-blue);
+  text-align: center;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+cards {
+  display: flex;
+  flex-direction: column;
+  row-gap: 32px;
+  margin: 32px 32px 0px 50px;
+}
+
+card {
+  border-radius: 8px;
+  border: 1px solid var(--border-grey);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+card>card-title {
+  padding: 22px 32px;
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 50px;
+}
+
+card>card-insights {
+  display: flex;
+  flex-direction: row;
+  padding: 22px 20px;
+  background: var(--insights-bg-grey);
+}
+
+card>card-insights p.insights-text {
+  margin: 0px 25px;
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.1px;
+}
+
+/* [charts] container is a flexbox that will contain [chart] child elements. */
+charts {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: space-between;
+  gap: 50px;
+  padding: 59px 69px;
+}
+
+charts chart {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart>chart-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
+
+charts chart-table {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 12px;
+}
+
+charts chart-table .chart-table-title {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  margin-bottom: 10px;
+}
+
+charts chart-table .chart-table-content {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.2px;
+}
+
+charts chart-table .chart-table-content table {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr {
+  border-radius: 4px;
+  border: 1px solid var(--border-grey);
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+charts chart-table .chart-table-content tr th,
+charts chart-table .chart-table-content tr td {
+  padding: 18px 16px;
+}
+
+charts chart-table .chart-table-description {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  max-width: 450px;
+}
+
+stats-section {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  padding: 32px;
+}
+
+stats-section stats {
+  display: flex;
+  flex-direction: column;
+}
+
+stats-section stats>stats-title {
+  color: var(--title-dark-grey);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats>stat {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 40px;
+}
+
+stats-section stats>delta {
+  color: var(--text-grey);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+stats-section stats .green-text {
+  color: var(--text-green);
+}
+
+stats-section stats .red-text {
+  color: var(--text-red);
+}
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+      <div class="logo">
+        
+      </div>
+      <div class="title">
+        Marketing Mix Modeling Report
+      </div>
+    </div>
+
+    
+
+<chips>
+  
+
+
+  
+    <chip>
+      Period1: Dec 30, 2024 - Dec 29, 2025
+    </chip>
+
+    <chip>
+      Period2: Jan 1, 2024 - Dec 30, 2024
+    </chip>
+  
+
+  
+      <chip title="Selected: Auto">
+        Selected geos:
+            Auto
+      </chip>
+  
+</chips>
+
+    <cards>
+      
+       
+        
+
+<card id="comparison-metrics">
+  <card-title>
+    Comparison Metrics
+  </card-title>
+  <card-insights>
+    <card-insights-icon>
+      <img src="https://www.gstatic.com/images/icons/material/system/svg/insights_24px.svg"
+            alt="insights icon" />
+    </card-insights-icon>
+    
+
+<p class="insights-text">
+  The comparison metrics help you
+understand how your marketing activities impacted your business objectives
+across two different time periods.
+</p> 
+  </card-insights>
+  
+  
+    <charts>
+       
+        
+
+<chart-table id="kpi-comparison-table">
+  <div class="chart-table-title">KPI Comparison</div>
+  <div class="chart-table-content">
+    <table>
+      <tr class="chart-table-column-headers">
+      
+        <th style="background-color: #eee;">Period 1</th>
+      
+        <th style="background-color: #eee;">Period 2</th>
+      
+        <th style="background-color: #eee;">Var %</th>
+      
+        <th style="background-color: #eee;">Var Abs</th>
+      
+      </tr>
+
+      
+        <tr class="chart-table-row-values">
+        
+          <td>151.698.496</td>
+        
+          <td>135.336.976</td>
+        
+          <td>+12.09%</td>
+        
+          <td>+16.361.520</td>
+        
+        </tr>
+      
+    </table>
+  </div>
+  
+    <div class="chart-table-description">KPI Comparison Description.</div>
+  
+</chart-table>
+       
+        
+
+<chart-table id="spend-comparison-table">
+  <div class="chart-table-title">Spend Comparison</div>
+  <div class="chart-table-content">
+    <table>
+      <tr class="chart-table-column-headers">
+      
+        <th style="background-color: #eee;">Channel</th>
+      
+        <th style="background-color: #eee;">Period 1</th>
+      
+        <th style="background-color: #eee;">Period 2</th>
+      
+        <th style="background-color: #eee;">Var %</th>
+      
+        <th style="background-color: #eee;">Var Abs</th>
+      
+      </tr>
+
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-afiliacion</td>
+        
+          <td>19.980,8</td>
+        
+          <td>89.731,9</td>
+        
+          <td>-77.73%</td>
+        
+          <td>-69.751,0</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-google</td>
+        
+          <td>113.503,3</td>
+        
+          <td>92.198,6</td>
+        
+          <td>+23.11%</td>
+        
+          <td>+21.304,7</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-resto</td>
+        
+          <td>552.796,0</td>
+        
+          <td>758.806,9</td>
+        
+          <td>-27.15%</td>
+        
+          <td>-206.010,9</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-fidelidade</td>
+        
+          <td>849.633,8</td>
+        
+          <td>190.071,2</td>
+        
+          <td>+347.01%</td>
+        
+          <td>+659.562,6</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>Total</td>
+        
+          <td>1.535.913,9</td>
+        
+          <td>1.130.808,6</td>
+        
+          <td>+35.82%</td>
+        
+          <td>+405.105,2</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>Digital</td>
+        
+          <td>133.484,1</td>
+        
+          <td>181.930,5</td>
+        
+          <td>-26.63%</td>
+        
+          <td>-48.446,4</td>
+        
+        </tr>
+      
+    </table>
+  </div>
+  
+    <div class="chart-table-description">Spend Comparison Description.</div>
+  
+</chart-table>
+       
+        
+
+<chart-table id="contribution-comparison-table">
+  <div class="chart-table-title">Contribution Comparison</div>
+  <div class="chart-table-content">
+    <table>
+      <tr class="chart-table-column-headers">
+      
+        <th style="background-color: #eee;">Channel</th>
+      
+        <th style="background-color: #eee;">Period 1</th>
+      
+        <th style="background-color: #eee;">Period 2</th>
+      
+        <th style="background-color: #eee;">Var pp</th>
+      
+      </tr>
+
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-afiliacion</td>
+        
+          <td>0.1%</td>
+        
+          <td>0.3%</td>
+        
+          <td>-0.25 pp</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-google</td>
+        
+          <td>0.7%</td>
+        
+          <td>0.7%</td>
+        
+          <td>+0.02 pp</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-resto</td>
+        
+          <td>0.6%</td>
+        
+          <td>0.8%</td>
+        
+          <td>-0.20 pp</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-fidelidade</td>
+        
+          <td>0.7%</td>
+        
+          <td>0.3%</td>
+        
+          <td>+0.39 pp</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>MediaAtr</td>
+        
+          <td>2.2%</td>
+        
+          <td>2.2%</td>
+        
+          <td>-0.04 pp</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>Baseline</td>
+        
+          <td>97.8%</td>
+        
+          <td>97.8%</td>
+        
+          <td>+0.04 pp</td>
+        
+        </tr>
+      
+    </table>
+  </div>
+  
+    <div class="chart-table-description">Contribution Comparison Description.</div>
+  
+</chart-table>
+       
+        
+
+<chart-table id="kpi-contribution-comparison-table">
+  <div class="chart-table-title">KPI Contribution Comparison</div>
+  <div class="chart-table-content">
+    <table>
+      <tr class="chart-table-column-headers">
+      
+        <th style="background-color: #eee;">Channel</th>
+      
+        <th style="background-color: #eee;">Period 1</th>
+      
+        <th style="background-color: #eee;">Period 2</th>
+      
+        <th style="background-color: #eee;">Var %</th>
+      
+        <th style="background-color: #eee;">Var Abs</th>
+      
+      </tr>
+
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-afiliacion</td>
+        
+          <td>104.398</td>
+        
+          <td>435.383</td>
+        
+          <td>-76.02%</td>
+        
+          <td>-330.985</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>digital-google</td>
+        
+          <td>1.126.132</td>
+        
+          <td>975.425</td>
+        
+          <td>+15.45%</td>
+        
+          <td>+150.707</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-resto</td>
+        
+          <td>976.379</td>
+        
+          <td>1.141.816</td>
+        
+          <td>-14.49%</td>
+        
+          <td>-165.437</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>off-fidelidade</td>
+        
+          <td>1.066.979</td>
+        
+          <td>425.401</td>
+        
+          <td>+150.82%</td>
+        
+          <td>+641.578</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>MediaAtr</td>
+        
+          <td>3.273.890</td>
+        
+          <td>2.978.017</td>
+        
+          <td>+9.94%</td>
+        
+          <td>+295.873</td>
+        
+        </tr>
+      
+        <tr class="chart-table-row-values">
+        
+          <td>Baseline</td>
+        
+          <td>148.424.606</td>
+        
+          <td>132.358.959</td>
+        
+          <td>+12.14%</td>
+        
+          <td>+16.065.647</td>
+        
+        </tr>
+      
+    </table>
+  </div>
+  
+    <div class="chart-table-description">KPI Contribution Comparison Description.</div>
+  
+</chart-table>
+       
+        
+
+<chart-table id="roi-comparison-table">
+  <div class="chart-table-title">ROI Comparison</div>
+  <div class="chart-table-content">
+    <table>
+      <tr class="chart-table-column-headers">
+      
+        <th style="background-color: #eee;">Period 1</th>
+      
+        <th style="background-color: #eee;">Period 2</th>
+      
+        <th style="background-color: #eee;">Var %</th>
+      
+        <th style="background-color: #eee;">Var Abs</th>
+      
+      </tr>
+
+      
+        <tr class="chart-table-row-values">
+        
+          <td>2,1</td>
+        
+          <td>2,6</td>
+        
+          <td>-19.06%</td>
+        
+          <td>-0,5</td>
+        
+        </tr>
+      
+    </table>
+  </div>
+  
+    <div class="chart-table-description">ROI Comparison Description.</div>
+  
+</chart-table>
+       
+        
+
+<chart>
+  <chart-embed id="spend-comparison-pie-chart"></chart-embed>
+  
+    <chart-description>
+      Spend Comparison Pie Chart Description.
+    </chart-description>
+  
+</chart>
+
+<script type="text/javascript">
+  (() => {
+    const opt = {
+      mode: 'vega-lite',
+      width: 'container',
+      autosize: { type: 'fit', contains: 'padding' }
+    };
+    const spec = JSON.parse("{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.4.1.json\", \"config\": {\"view\": {\"continuousHeight\": 300, \"continuousWidth\": 300, \"stroke\": null}}, \"data\": {\"name\": \"data-a44ff1a6032f719349a49bbea74046c7\"}, \"datasets\": {\"data-a44ff1a6032f719349a49bbea74046c7\": [{\"channel\": \"digital-afiliacion\", \"pct_of_total_spend\": 0.013009067624807358, \"spend\": 19980.80859375}, {\"channel\": \"digital-google\", \"pct_of_total_spend\": 0.07389950007200241, \"spend\": 113503.28125}, {\"channel\": \"off-resto\", \"pct_of_total_spend\": 0.3599133789539337, \"spend\": 552796.0}, {\"channel\": \"off-fidelidade\", \"pct_of_total_spend\": 0.5531780123710632, \"spend\": 849633.8125}]}, \"layer\": [{\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\", \"scale\": {\"domain\": [\"digital-afiliacion\", \"digital-google\", \"off-resto\", \"off-fidelidade\"], \"range\": [\"#700F08\", \"#F1A5A1\", \"#571A8B\", \"#C3C7C9\"]}}, \"theta\": {\"field\": \"spend\", \"stack\": true, \"type\": \"quantitative\"}, \"tooltip\": [{\"field\": \"channel\", \"type\": \"nominal\"}, {\"field\": \"spend\", \"type\": \"quantitative\"}, {\"field\": \"pct_of_total_spend\", \"format\": \".1%\", \"title\": \"% of total\", \"type\": \"quantitative\"}]}, \"mark\": {\"type\": \"arc\"}}, {\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\", \"scale\": {\"domain\": [\"digital-afiliacion\", \"digital-google\", \"off-resto\", \"off-fidelidade\"], \"range\": [\"#700F08\", \"#F1A5A1\", \"#571A8B\", \"#C3C7C9\"]}}, \"text\": {\"field\": \"pct_of_total_spend\", \"format\": \".0%\", \"type\": \"quantitative\"}, \"theta\": {\"field\": \"spend\", \"stack\": true, \"type\": \"quantitative\"}}, \"mark\": {\"fill\": \"white\", \"font\": \"\\\"Space Grotesk\\\"\", \"radius\": 125, \"size\": 14, \"type\": \"text\"}}], \"title\": {\"anchor\": \"start\", \"color\": \"#3C4043\", \"font\": \"\\\"Space Grotesk\\\"\", \"fontSize\": 18, \"fontWeight\": \"normal\", \"offset\": 10, \"text\": \"Spend Comparison Pie Chart\"}, \"width\": 400}");
+    const chartDiv = document.getElementById('spend-comparison-pie-chart');
+    setTimeout(() => {
+      vegaEmbed('#spend-comparison-pie-chart', spec).catch(console.error);
+    }, 500);
+  })();
+</script>
+       
+        
+
+<chart>
+  <chart-embed id="contribution-comparison-pie-chart"></chart-embed>
+  
+    <chart-description>
+      Contribution Comparison Pie Chart Description.
+    </chart-description>
+  
+</chart>
+
+<script type="text/javascript">
+  (() => {
+    const opt = {
+      mode: 'vega-lite',
+      width: 'container',
+      autosize: { type: 'fit', contains: 'padding' }
+    };
+    const spec = JSON.parse("{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.4.1.json\", \"config\": {\"view\": {\"continuousHeight\": 300, \"continuousWidth\": 300, \"stroke\": null}}, \"data\": {\"name\": \"data-5a9c5a1d1fd90ee8d7fbc156f15712f9\"}, \"datasets\": {\"data-5a9c5a1d1fd90ee8d7fbc156f15712f9\": [{\"channel\": \"digital-afiliacion\", \"pct_of_contribution\": 0.0006881955778226256, \"pct_of_total_contribution\": 0.031888142228126526}, {\"channel\": \"digital-google\", \"pct_of_contribution\": 0.007423490285873413, \"pct_of_total_contribution\": 0.34397390484809875}, {\"channel\": \"off-resto\", \"pct_of_contribution\": 0.006436314433813095, \"pct_of_total_contribution\": 0.2982322573661804}, {\"channel\": \"off-fidelidade\", \"pct_of_contribution\": 0.00703355111181736, \"pct_of_total_contribution\": 0.3259057402610779}]}, \"layer\": [{\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\", \"scale\": {\"domain\": [\"digital-afiliacion\", \"digital-google\", \"off-resto\", \"off-fidelidade\"], \"range\": [\"#700F08\", \"#F1A5A1\", \"#571A8B\", \"#C3C7C9\"]}}, \"theta\": {\"field\": \"pct_of_contribution\", \"stack\": true, \"type\": \"quantitative\"}, \"tooltip\": [{\"field\": \"channel\", \"type\": \"nominal\"}, {\"field\": \"pct_of_contribution\", \"type\": \"quantitative\"}, {\"field\": \"pct_of_total_contribution\", \"format\": \".1%\", \"title\": \"% of total\", \"type\": \"quantitative\"}]}, \"mark\": {\"type\": \"arc\"}}, {\"encoding\": {\"color\": {\"field\": \"channel\", \"legend\": {\"offset\": -25, \"rowPadding\": 10, \"title\": null}, \"type\": \"nominal\", \"scale\": {\"domain\": [\"digital-afiliacion\", \"digital-google\", \"off-resto\", \"off-fidelidade\"], \"range\": [\"#700F08\", \"#F1A5A1\", \"#571A8B\", \"#C3C7C9\"]}}, \"text\": {\"field\": \"pct_of_total_contribution\", \"format\": \".0%\", \"type\": \"quantitative\"}, \"theta\": {\"field\": \"pct_of_contribution\", \"stack\": true, \"type\": \"quantitative\"}}, \"mark\": {\"fill\": \"white\", \"font\": \"\\\"Space Grotesk\\\"\", \"radius\": 125, \"size\": 14, \"type\": \"text\"}}], \"title\": {\"anchor\": \"start\", \"color\": \"#3C4043\", \"font\": \"\\\"Space Grotesk\\\"\", \"fontSize\": 18, \"fontWeight\": \"normal\", \"offset\": 10, \"text\": \"Contribution Comparison Pie Chart\"}, \"width\": 400}");
+    const chartDiv = document.getElementById('contribution-comparison-pie-chart');
+    setTimeout(() => {
+      vegaEmbed('#contribution-comparison-pie-chart', spec).catch(console.error);
+    }, 500);
+  })();
+</script>
+      
+    </charts>
+  
+</card>
+      
+    </cards>
+  </body>
+</html>

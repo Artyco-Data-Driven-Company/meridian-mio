@@ -1,0 +1,72 @@
+# If true, the Vega-Lite JSON for each chart will be exported.
+export_charts_json: true
+
+# Constants for colors, fonts, and other styling options.
+grey_600: &grey_600 "#C3C7C9"
+grey_700: &grey_700 "#5F6368"
+red_300: &red_300 "#F28B82"
+purple_500: &purple_500 "#AF5CF7"
+green_300: &green_300 "#81C995"
+font_family: &font_family '"Space Grotesk"'
+font_link: &font_link "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+
+html_reports:
+  global:
+    font_family: *font_family
+    font_link: *font_link
+
+  model_results_summary:
+    color_domain: &color_domain [  digital-google, off-resto, off-fidelidade ]
+    color_range: &color_range [ "#F1A5A1", "#571A8B", "#C3C7C9"]
+    color_domain_wb: &color_domain_wb [ baseline, digital-google, off-resto, off-fidelidade ]
+    color_range_wb: &color_range_wb [ "#235c94", "#F1A5A1", "#571A8B", "#C3C7C9"]
+
+    expected-actual-outcome-chart:
+      pass: true
+    channel-drivers-chart:
+      hide_abs_number: false
+      layer: [ { encoding: { color: { condition: { value: *grey_600 }, value: *red_300 } } } ]
+    spend-outcome-chart:
+      hide_roi_values: false
+      spec: { layer: [ { encoding: { color: { scale: { range: [ *red_300, *grey_600, *purple_500 ] } } } }, { mark: { color: *purple_500 } } ] }
+    outcome-contribution-chart:
+      layer: [ { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } }, { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } } ]
+    channel-contrib-by-time-chart:
+      encoding: { color: { scale: { clamp: false, domain: *color_domain_wb, range: *color_range_wb } } }
+    channel-contrib-rank-chart:
+      encoding: { color: { scale: { clamp: false, domain: *color_domain_wb, range: *color_range_wb } } }
+    roi-effectiveness-chart:
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
+    roi-marginal-chart:
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
+    roi-channel-chart:
+      layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
+    cpik-channel-chart:
+      layer: [ { mark: { color: *grey_600 } }, { mark: { color: *red_300 } }, { mark: { color: *red_300 } } ]
+    response-curves-chart:
+      max_channels: 3
+      layer: [ { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } } ]
+
+  comparison_metrics_summary:
+    cm_color_domain: &cm_color_domain [ digital-afiliacion, digital-google, off-resto, off-fidelidade]
+    cm_color_range: &cm_color_range [ "#700F08", "#F1A5A1", "#571A8B", "#C3C7C9"]
+    digital_channels: &digital_channels [ "digital-afiliacion", "digital-google"] # List of digital channels to consider for the "Digital" row.
+
+    spend-comparison-pie-chart:
+      layer: [ { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } }, { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } } ]
+
+    contribution-comparison-pie-chart:
+      layer: [ { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } }, { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } } ]
+
+  optimization_summary:
+    os_color_domain: &os_color_domain [ digital-afiliacion, digital-google, off-television, off-resto, off-fidelidade, off-radio,  off-news]
+    os_color_range: &os_color_range [ "#700F08", "#F1A5A1", "#5F6368", "#571A8B", "#C3C7C9", "#3B82A6", "#B5651D"]
+
+    spend-delta-chart:
+      layer: [ { encoding: { color: { condition: { value: *green_300 }, value: *red_300 } } } ]
+    spend-allocation-chart:
+      encoding: { color: { scale: { domain: *os_color_domain, range: *os_color_range } } }
+    outcome-delta-chart:
+      layer: [ { encoding: { color: { condition: [ { value: *grey_700 }, { value: *red_300 } ], value: *green_300 } } } ]
+    optimized-response-curves-chart:
+      max_channels: 6
