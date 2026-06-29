@@ -1066,7 +1066,6 @@ class MediaEffects:
     """
 
     total_num_channels = len(self._meridian.input_data.get_all_channels())
-    # FIXME: No sé si sean difentes por geo.
     if plot_separately:
       title = summary_text.RESPONSE_CURVES_CHART_TITLE.format(top_channels='')
       num_channels_displayed = total_num_channels
@@ -1809,6 +1808,11 @@ class MediaSummary:
         selected_geos=selected_geos,
     )
 
+    # Exclude channels with missing 'incremental_outcome' values from the plot.
+    outcome_df = outcome_df[outcome_df['incremental_outcome'] != 0].reset_index(
+        drop=True
+    )
+
     # Ensure proper ordering for the stacked area chart. Baseline should be at
     # the bottom. Separate the *stacking* order from the *legend* order.
     stack_order = sorted(
@@ -1946,6 +1950,11 @@ class MediaSummary:
         method='first', ascending=False
     )
 
+    # Exclude channels with missing 'incremental_outcome' values from the plot.
+    outcome_df = outcome_df[outcome_df['incremental_outcome'] != 0].reset_index(
+        drop=True
+    )
+
     if time_granularity == c.QUARTERLY:
       # Filter data to keep only the last available date within each quarter
       # for a quarterly view of ranking changes.
@@ -2067,6 +2076,11 @@ class MediaSummary:
         lambda x: formatter.format_number_text(x[pct], x[value]),
         axis=1,
     )
+
+    # Exclude channels with missing 'outcome_text' values from the plot.
+    outcome_df = outcome_df[
+        outcome_df['outcome_text'] != '0.0% (0)'
+    ].reset_index(drop=True)
 
     if self.client_config.get(
         'html_reports.model_results_summary.channel-drivers-chart.hide_abs_number',
@@ -2235,6 +2249,10 @@ class MediaSummary:
     """
     outcome = c.KPI.upper() if self._use_kpi else c.REVENUE
     df = self._transform_contribution_spend_metrics(selected_geos=selected_geos)
+
+    # Exclude channels with missing ROI values from the plot.
+    df = df.dropna(subset=[c.ROI]).reset_index(drop=True)
+
     domain = [
         f'% {outcome.title() if outcome == c.REVENUE else outcome}',
         '% Spend',
@@ -2516,6 +2534,9 @@ class MediaSummary:
     plot_df = self._transform_media_metrics_for_roi_bubble_plot(
         metric, selected_channels, selected_geos=selected_geos
     )
+
+    # Exclude channels with missing ROI values from the plot.
+    plot_df = plot_df.dropna(subset=[c.ROI]).reset_index(drop=True)
 
     axes_scale = alt.Scale()
     if equal_axes:
