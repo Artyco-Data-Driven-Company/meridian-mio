@@ -9,6 +9,8 @@ purple_500: &purple_500 "#AF5CF7"
 green_300: &green_300 "#81C995"
 font_family: &font_family '"Space Grotesk"'
 font_link: &font_link "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+color_domain: &color_domain [ baseline, digital-afiliacion, digital-google, digital-meta, off-television, off-resto, off-fidelidade, off-radio,  off-news, off-outdoor ]
+color_range: &color_range [ "#2a78d6", "#1baf7a", "#eda100", "#259cca", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834", "#900281" ]
 
 html_reports:
   global:
@@ -16,11 +18,6 @@ html_reports:
     font_link: *font_link
 
   model_results_summary:
-    color_domain: &color_domain [  digital-google, off-resto, off-fidelidade ]
-    color_range: &color_range [ "#F1A5A1", "#571A8B", "#C3C7C9"]
-    color_domain_wb: &color_domain_wb [ baseline, digital-google, off-resto, off-fidelidade ]
-    color_range_wb: &color_range_wb [ "#235c94", "#F1A5A1", "#571A8B", "#C3C7C9"]
-
     expected-actual-outcome-chart:
       pass: true
     channel-drivers-chart:
@@ -32,9 +29,9 @@ html_reports:
     outcome-contribution-chart:
       layer: [ { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } }, { encoding: { color: { scale: { range: [ *grey_600, *red_300 ] } } } } ]
     channel-contrib-by-time-chart:
-      encoding: { color: { scale: { clamp: false, domain: *color_domain_wb, range: *color_range_wb } } }
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
     channel-contrib-rank-chart:
-      encoding: { color: { scale: { clamp: false, domain: *color_domain_wb, range: *color_range_wb } } }
+      encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
     roi-effectiveness-chart:
       encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } }
     roi-marginal-chart:
@@ -48,25 +45,20 @@ html_reports:
       layer: [ { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } } ]
 
   comparison_metrics_summary:
-    cm_color_domain: &cm_color_domain [ digital-afiliacion, digital-google, off-resto, off-fidelidade]
-    cm_color_range: &cm_color_range [ "#700F08", "#F1A5A1", "#571A8B", "#C3C7C9"]
-    digital_channels: &digital_channels [ "digital-afiliacion", "digital-google"] # List of digital channels to consider for the "Digital" row.
+    digital_channels: &digital_channels [ "digital-afiliacion", "digital-google"] # List of digital channels to consider for the "Digital" row in ´spend-comparison-table´.
 
     spend-comparison-pie-chart:
-      layer: [ { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } }, { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } } ]
-
+      layer: [ { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } } ]
     contribution-comparison-pie-chart:
-      layer: [ { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } }, { encoding: { color: { scale: { domain: *cm_color_domain, range: *cm_color_range } } } } ]
+      layer: [ { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } } ]
 
   optimization_summary:
-    os_color_domain: &os_color_domain [ digital-afiliacion, digital-google, off-television, off-resto, off-fidelidade, off-radio,  off-news]
-    os_color_range: &os_color_range [ "#700F08", "#F1A5A1", "#5F6368", "#571A8B", "#C3C7C9", "#3B82A6", "#B5651D"]
-
     spend-delta-chart:
       layer: [ { encoding: { color: { condition: { value: *green_300 }, value: *red_300 } } } ]
     spend-allocation-chart:
-      encoding: { color: { scale: { domain: *os_color_domain, range: *os_color_range } } }
+      encoding: { color: { scale: { domain: *color_domain, range: *color_range } } }
     outcome-delta-chart:
       layer: [ { encoding: { color: { condition: [ { value: *grey_700 }, { value: *red_300 } ], value: *green_300 } } } ]
     optimized-response-curves-chart:
       max_channels: 6
+      spec: { layer: [ { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } } ] }

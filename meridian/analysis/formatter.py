@@ -145,8 +145,91 @@ class CustomizeCharts:
       json.dump(charts_data, f, indent=2)
 
   @staticmethod
+  def _is_domain_range_pair(
+      base: dict[str, Any], overrides: dict[str, Any]
+  ) -> bool:
+    """Returns True if *base* defines a `domain` and *overrides* defines a
+    `domain`/`range` list pair (e.g. a Vega-Lite color scale).
+
+    `base['range']` is not required: a chart may rely on Vega-Lite's default
+    color scheme and only declare `domain`.
+    """
+    return (
+        isinstance(base.get('domain'), list)
+        and isinstance(overrides.get('domain'), list)
+        and isinstance(overrides.get('range'), list)
+    )
+
+  @staticmethod
+  def _merge_domain_range(
+      base: dict[str, Any], overrides: dict[str, Any]
+  ) -> None:
+    """Merges a `domain`/`range` pair by matching domain labels.
+
+    Only the color of domain values already present in `base['domain']` is
+    replaced, using the matching entry from `overrides`. Domain values that
+    only exist in the override (e.g. extra channels not used by this chart)
+    are ignored so the legend never grows beyond the chart's own domain.
+    """
+    color_by_label = dict(zip(overrides['domain'], overrides['range']))
+    base_range = base.get('range', [])
+    base['range'] = [
+        color_by_label.get(
+            label, base_range[i] if i < len(base_range) else None
+        )
+        for i, label in enumerate(base['domain'])
+    ]
+
+  @staticmethod
+  def _infer_color_domains(
+      node: Any,
+      datasets: dict[str, list[dict[str, Any]]],
+      data_name: str | None,
+  ) -> None:
+    """Fills in `encoding.color.scale.domain` wherever it's missing.
+
+    Vega-Lite infers a nominal color scale's domain from the unique values of
+    its encoded field when `scale.domain` isn't set explicitly. That implicit
+    domain needs to be made explicit before merging overrides, otherwise the
+    override's full domain/range would be injected wholesale instead of being
+    matched against the channels this specific chart actually plots.
+    """
+    if isinstance(node, dict):
+      if isinstance(node.get('data'), dict) and 'name' in node['data']:
+        data_name = node['data']['name']
+
+      color = node.get('encoding', {}).get('color')
+      if (
+          isinstance(color, dict)
+          and color.get('type') == 'nominal'
+          and 'field' in color
+          and not isinstance(color.get('scale', {}).get('domain'), list)
+          and data_name is not None
+      ):
+        field = color['field']
+        domain = []
+        for row in datasets.get(data_name, []):
+          value = row.get(field)
+          if value is not None and value not in domain:
+            domain.append(value)
+        if domain:
+          color.setdefault('scale', {})['domain'] = domain
+
+      for value in node.values():
+        CustomizeCharts._infer_color_domains(value, datasets, data_name)
+    elif isinstance(node, list):
+      for item in node:
+        CustomizeCharts._infer_color_domains(item, datasets, data_name)
+
+  @staticmethod
   def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]):
     """Recursively merge *overrides* into *base* in place."""
+    if CustomizeCharts._is_domain_range_pair(base, overrides):
+      CustomizeCharts._merge_domain_range(base, overrides)
+      overrides = {
+          k: v for k, v in overrides.items() if k not in ('domain', 'range')
+      }
+
     for key, value in overrides.items():
       if (
           key in base
@@ -198,6 +281,12 @@ class CustomizeCharts:
     """
     # Get the original chart JSON as a dictionary
     chart_json_dict = json.loads(chart_spec.chart_json)
+
+    # Make any implicit (data-derived) color domain explicit, so overrides
+    # only replace colors for channels this chart actually plots.
+    self._infer_color_domains(
+        chart_json_dict, chart_json_dict.get('datasets', {}), None
+    )
 
     # Recursively merge nested overrides without dropping sibling keys.
     self._deep_merge(chart_json_dict, chart_overrides)

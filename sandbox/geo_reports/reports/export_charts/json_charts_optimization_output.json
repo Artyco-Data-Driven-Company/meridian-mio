@@ -239,21 +239,25 @@
         "scale": {
           "domain": [
             "digital-afiliacion",
+            "digital-meta",
             "digital-google",
             "off-television",
-            "off-resto",
-            "off-fidelidade",
             "off-radio",
-            "off-news"
+            "off-outdoor",
+            "off-news",
+            "off-resto",
+            "off-fidelidade"
           ],
           "range": [
-            "#700F08",
-            "#F1A5A1",
-            "#5F6368",
-            "#571A8B",
-            "#C3C7C9",
-            "#3B82A6",
-            "#B5651D"
+            "#1baf7a",
+            "#259cca",
+            "#eda100",
+            "#008300",
+            "#e87ba4",
+            "#900281",
+            "#eb6834",
+            "#4a3aa7",
+            "#e34948"
           ]
         }
       },
@@ -13914,7 +13918,25 @@
             "color": {
               "field": "channel",
               "legend": null,
-              "type": "nominal"
+              "type": "nominal",
+              "scale": {
+                "domain": [
+                  "off-resto",
+                  "off-fidelidade",
+                  "digital-google",
+                  "digital-afiliacion",
+                  "off-television",
+                  "off-radio"
+                ],
+                "range": [
+                  "#4a3aa7",
+                  "#e34948",
+                  "#eda100",
+                  "#1baf7a",
+                  "#008300",
+                  "#e87ba4"
+                ]
+              }
             },
             "x": {
               "axis": {
@@ -13964,7 +13986,17 @@
             "color": {
               "field": "channel",
               "legend": null,
-              "type": "nominal"
+              "type": "nominal",
+              "scale": {
+                "domain": [
+                  "off-resto",
+                  "off-fidelidade",
+                  "digital-google",
+                  "digital-afiliacion",
+                  "off-television",
+                  "off-radio"
+                ]
+              }
             },
             "strokeDash": {
               "field": "spend_constraint",
@@ -14018,7 +14050,17 @@
             "color": {
               "field": "channel",
               "legend": null,
-              "type": "nominal"
+              "type": "nominal",
+              "scale": {
+                "domain": [
+                  "off-resto",
+                  "off-fidelidade",
+                  "digital-google",
+                  "digital-afiliacion",
+                  "off-television",
+                  "off-radio"
+                ]
+              }
             },
             "shape": {
               "field": "spend_level",
