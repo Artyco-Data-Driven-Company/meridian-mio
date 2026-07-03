@@ -45,7 +45,7 @@ html_reports:
       layer: [ { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { clamp: false, domain: *color_domain, range: *color_range } } } } ]
 
   comparison_metrics_summary:
-    digital_channels: &digital_channels [ "digital-afiliacion", "digital-google"] # List of digital channels to consider for the "Digital" row in ´spend-comparison-table´.
+    digital_channels: &digital_channels [ "digital-afiliacion", "digital-google", "digital-meta" ] # List of digital channels to consider for the "Digital" row in ´spend-comparison-table´.
 
     spend-comparison-pie-chart:
       layer: [ { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } }, { encoding: { color: { scale: { domain: *color_domain, range: *color_range } } } } ]
