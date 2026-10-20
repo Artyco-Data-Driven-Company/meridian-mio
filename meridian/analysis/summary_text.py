@@ -150,10 +150,9 @@ Guide."""
 #  Comparison metrics texts.
 COMPARISON_METRICS_CARD_ID = 'comparison-metrics'
 COMPARISON_METRICS_CARD_TITLE = 'Comparison Metrics'
-COMPARISON_METRICS_INSIGHTS_FORMAT = """The comparison metrics table shows the
-performance of your marketing channels across two different time periods.<br>
-In this case, we are comparing <b>Period 1</b> ({period_1}) and <b>Period 2</b>
-({period_2})."""
+COMPARISON_METRICS_INSIGHTS_FORMAT = """The comparison metrics help you
+understand how your marketing activities impacted your business objectives
+across two different time periods."""
 
 KPI_COMPARISON_ID = 'kpi-comparison-table'
 KPI_COMPARISON_TITLE = 'KPI Comparison'
